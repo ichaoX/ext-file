@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="shortcut icon" href="/icon.png">
+    <title>File System Access Extension</title>
+    <style>
+        :root {
+            scroll-behavior: smooth;
+        }
+
+        :target {
+            background-color: lightyellow;
+        }
+
+        body {
+            margin: 2rem;
+            margin-bottom: 33vh;
+        }
+
+        h2 {
+            margin-top: 4rem;
+        }
+
+        h3 {
+            margin-top: 2rem;
+        }
+
+        h2,
+        h3 {
+            border-left-color: rgb(255, 214, 102);
+            border-left-style: solid;
+            padding-left: 0.5rem;
+        }
+
+        h2 a,
+        h3 a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        h2 {
+            border-left-width: 0.2rem;
+        }
+
+        h3 {
+            border-left-width: 0.4rem;
+        }
+
+        /*
+        a[href^="http"]::after {
+            content: " (" attr(href) ")";
+        }
+        */
+
+        a[href^="#"]:before {
+            content: "#";
+            opacity: 0.5;
+        }
+
+        th {
+            background-color: #ddd;
+        }
+
+        td {
+            padding: 0.2rem 1rem;
+        }
+
+        tbody tr:nth-child(odd) {
+            background-color: #eee;
+        }
+
+        code {
+            background-color: rgb(242, 241, 241);
+            padding: 0.125rem;
+            border-radius: 0.125rem;
+        }
+
+        .help {
+            font-size: 0.8rem;
+        }
+
+        .warn {
+            color: #aa4643;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>File System Access Extension</h1>
+    <h2 id="app"><a href="#app">Native Application</a></h2>
+    <p>
+        The local file operations required by this extension cannot be performed in the browser, and a native
+        application needs to be installed to assist in the related work.
+    </p>
+    <p>
+        After the native application is installed, the extension will automatically run the native application when
+        necessary.
+    </p>
+    <h3 id="install-app"><a href="#install-app">Install the native application</a></h3>
+    <p>
+        Select the installer below based on your operating system and follow the README documentation inside.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>System</th>
+                <th>Link</th>
+                <th>Requirements / Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Windows</td>
+                <td><a download target="_blank" href="/assets/windows.zip">Download</a></td>
+                <td>This requires that you have Python 2 or 3 installed and added to <code
+                        title="Environment Variable">PATH</code> and the tkinter module enabled.</td>
+            </tr>
+            <tr>
+                <td>Linux</td>
+                <td><a download target="_blank" href="/assets/linux.zip">Download</a></td>
+                <td>This requires that you have the tkinter module installed.</td>
+            </tr>
+            <tr>
+                <td>Other</td>
+                <td>--</td>
+                <td>You can refer to other system installers and <a target="_blank"
+                        href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_manifests#manifest_location">Manifest
+                        location</a> for installation.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <h3 id="check-app"><a href="#check-app">Check the native application</a></h3>
+    <p>
+        Open the <a href="./options.html" target="options">options page</a> and check the state of the <q>Native
+            Application</q>.
+    </p>
+    <ul>
+        <li>
+            If the state is <em>Unknown</em>, please click the <q>Recheck</q> button.
+        </li>
+        <li>
+            If the state is <em>Not Installed</em>, please <a href="#install-app">install the native application</a>.
+        </li>
+        <li>
+            If the state is <em>Running</em>, the native application is running normally.
+        </li>
+    </ul>
+    <h2 id="content-script"><a href="#content-script">Content Script</a></h2>
+    <h3 id="match-patterns"><a href="#match-patterns">Match patterns</a></h3>
+    <p>
+        This option mainly controls in which pages the extension is enabled, and the complete options can be viewed
+        in the <a
+            href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/contentScripts/register#parameters"
+            target="_blank"><code>contentScriptOptions</code></a>.
+    </p>
+    <p>
+        When setting in the <a href="./options.html" target="options">options page</a>, it must conform to the <a
+            href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON#javascript_and_json_differences"
+            target="_blank">JSON</a> syntax.
+    </p>
+    <h3 id="env-vars"><a href="#env-vars">Configuration parameters</a></h3>
+    <p>
+        This option mainly controls the specific configuration of each page. When configuring the <a
+            href="./options.html" target="options">option page</a>, it should be a <a
+            href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#declarations"
+            target="_blank">declaration variable statement</a>.
+    </p>
+    <p>
+        Features marked as <em class="warn">Experimental</em> may have side effects and should only be enabled on
+        necessary pages.
+    </p>
+    <table>
+        <caption>
+            All Available Configuration Parameters
+        </caption>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Unit</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>FS_API_ENABLED</td>
+                <td>--</td>
+                <td>Enable polyfill for File System API.</td>
+            </tr>
+            <tr>
+                <td>FS_OVERRIDE_ENABLED</td>
+                <td>--</td>
+                <td>Override native <code>FileSystem*</code> API to Object.</td>
+            </tr>
+            <tr>
+                <td>FS_CLONE_ENABLED</td>
+                <td>--</td>
+                <td><span class="warn help" title="Should only be enabled when necessary.">(Experimental)</span>
+                    Preserve methods when cloning
+                    <code>FileSystem*Handle</code>.
+                </td>
+            </tr>
+            <tr>
+                <td>FS_WORKER_ENABLED</td>
+                <td>--</td>
+                <td><span class="warn help" title="Should only be enabled when necessary.">(Experimental)</span>
+                    Inject File System API into
+                    worker.</td>
+            </tr>
+            <tr>
+                <td>FS_FILE_SIZE_LIMIT</td>
+                <td>byte</td>
+                <td>Limit file size when reading.</td>
+            </tr>
+            <tr>
+                <td>FS_FILE_CACHE_EXPIRE</td>
+                <td>second</td>
+                <td>Clear cache for files not accessed beyond timeout.</td>
+            </tr>
+            <tr>
+                <td>FS_DEBUG_ENABLED</td>
+                <td>--</td>
+                <td>Enable Debug mode.</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+</html>

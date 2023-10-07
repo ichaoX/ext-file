@@ -1,0 +1,10 @@
+{
+  "name": "webext.fsa.app",
+  "description": "File System Access Native Messaging Host",
+  "path": "__APP_PATH__",
+  "type": "stdio",
+  "allowed_extensions": [
+    "file@example.com",
+    "framework@example.com"
+  ]
+}

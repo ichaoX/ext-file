@@ -1,0 +1,45 @@
+{
+    "description": "File System Access API that enable web apps to interact with files on the local device.",
+    "manifest_version": 2,
+    "name": "File System Access",
+    "icons": {
+        "32": "/icon.png"
+    },
+    "version": "0.7",
+    "permissions": [
+        "nativeMessaging",
+        "storage",
+        "webNavigation",
+        "<all_urls>"
+    ],
+    "content_scripts": [],
+    "background": {
+        "scripts": [
+            "/lib/enum.js",
+            "/lib/util.js",
+            "/background/api/fs.js",
+            "/background/api/tab.js",
+            "/background/main.js"
+        ]
+    },
+    "page_action": {
+        "default_popup": "/view/popup.html",
+        "browser_style": true,
+        "default_icon": {
+            "32": "/icon.png"
+        }
+    },
+    "options_ui": {
+        "open_in_tab": false,
+        "browser_style": true,
+        "page": "/view/options.html"
+    },
+    "web_accessible_resources": [
+        "*"
+    ],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "file@example.com"
+        }
+    }
+}

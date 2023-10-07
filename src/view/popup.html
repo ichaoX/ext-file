@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="shortcut icon" href="/icon.png">
+    <style>
+        body {
+            min-width: 350px;
+            /* max-width: 100vw; */
+            min-height: 100px;
+        }
+
+        .title {
+            font-size: 1.3rem;
+            background-color: #eee;
+            padding: 0.2rem;
+        }
+
+        .origin {
+            padding-right: 0.5rem;
+        }
+
+        details.mode {
+            margin: 0.2rem;
+        }
+
+        .mode summary {
+            font-size: 1.1rem;
+            color: darkblue;
+        }
+
+        .mode.readwrite summary {
+            color: darkred;
+        }
+
+        .mode ul {
+            margin: 0.2rem;
+            padding-left: 0rem;
+            list-style: none;
+        }
+
+        .mode ul li {
+            color: #233;
+            opacity: 0.7;
+        }
+
+        .mode ul li.minor {
+            color: #888;
+        }
+
+        .mode ul li:hover {
+            opacity: 1;
+        }
+
+        .text {
+            user-select: text;
+        }
+
+        .permission {
+            padding: 0.2rem 0 0.5rem 0.5rem;
+            box-sizing: border-box;
+        }
+
+        .right {
+            float: right;
+        }
+
+        .btn {
+            user-select: none;
+            cursor: pointer;
+            display: inline-block;
+            min-width: 1rem;
+            text-align: center;
+        }
+
+        .mode .btn[data-action="fs.removePermission"]:hover {
+            color: red;
+        }
+    </style>
+    <script src="/lib/util.js"></script>
+    <script src="/lib/enum.js"></script>
+    <script src="./popup.js"></script>
+    <template id="origin-permission">
+        <details open>
+            <summary class="title">
+                <span class="origin"></span>
+                <button class="right" type="button" data-action="fs.removePermission" data-origin="">
+                    Remove access
+                </button>
+            </summary>
+            <div class="permission">
+                <details open class="mode readwrite">
+                    <summary>Edit (Read & Write)</summary>
+                    <ul>
+                        <li>
+                            <span class="btn" data-action="fs.removePermission" data-mode="readwrite" data-origin=""
+                                data-path="" data-ancestor.ctrl="1" data-descendant.shift="1">-</span>
+                            <span class="path text"></span>
+                        </li>
+                    </ul>
+                </details>
+                <details open class="mode read">
+                    <summary>View (Read)</summary>
+                    <ul>
+                        <li>
+                            <span class="btn" data-action="fs.removePermission" data-mode="read" data-origin=""
+                                data-path="" data-ancestor.ctrl="1" data-descendant.shift="1">-</span>
+                            <span class="path text"></span>
+                        </li>
+                    </ul>
+                </details>
+            </div>
+        </details>
+    </template>
+</head>
+
+<body>
+</body>
+
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="shortcut icon" href="/icon.png">
+    <title>File System Access Options</title>
+    <style>
+        .section {
+            max-width: 600px;
+            margin: 1rem;
+        }
+
+        summary {
+            margin: -0.5rem -0.5rem 0;
+        }
+
+        label {
+            display: block;
+            margin: 0.5rem 0;
+        }
+
+        .section textarea {
+            width: 100%;
+            min-height: 150px;
+            box-sizing: border-box;
+        }
+
+        .help {
+            font-size: 0.8rem;
+            color: #555;
+        }
+
+        .help a {
+            min-width: 1rem;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .right {
+            float: right;
+        }
+
+        .hide {
+            display: none;
+        }
+
+        .label {
+            display: inline-block;
+            min-width: 5rem;
+            /* text-align: right; */
+        }
+
+        .label::after {
+            content: ': ';
+        }
+
+        [data-status=""] {
+            color: gray;
+        }
+
+        [data-status="ok"] {
+            color: green;
+        }
+
+        [data-status="error"] {
+            color: red;
+        }
+
+        button+button {
+            margin-left: 1rem;
+        }
+    </style>
+    <script src="/lib/util.js"></script>
+</head>
+
+<body>
+    <details open class="section content-script-options">
+        <summary>Content Script</summary>
+        <label> * Match patterns
+            <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>
+            <br />
+            <textarea class="options" placeholder='{ "matches": ["*://*.example.com/*"] }'></textarea>
+        </label>
+        <label> Configuration parameters
+            <span class="help">(<a href="./doc.html#env-vars" target="doc">?</a>)</span>
+            <br />
+            <textarea class="env" placeholder="let FS_API_ENABLED = self.isSecureContext;"></textarea>
+        </label>
+        <button type="button" class="save">Save</button>
+        <button type="button" class="reset right">Reset to default</button>
+    </details>
+    <details open class="section app-options">
+        <summary>Native Application
+            <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
+        </summary>
+        <div class="state">
+            <label><span class="label">State</span><span data-state="text" data-status="">Unknown</span></label>
+            <label><span class="label">Version</span><span data-state="version" data-status="">Unknown</span></label>
+        </div>
+        <button type="button" class="recheck">Recheck</button>
+        <button type="button" class="stop hide">Stop</button>
+    </details>
+    <script src="./options.js"></script>
+</body>
+
+</html>
