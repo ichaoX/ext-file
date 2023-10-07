@@ -68,6 +68,10 @@
             padding: 0.2rem 1rem;
         }
 
+        tbody tr {
+            background-color: #f7f7f7;
+        }
+
         tbody tr:nth-child(odd) {
             background-color: #eee;
         }
@@ -107,26 +111,35 @@
         <thead>
             <tr>
                 <th>System</th>
+                <th>Type</th>
                 <th>Link</th>
-                <th>Requirements / Notes</th>
+                <th>Requirements</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>Windows</td>
+                <td rowspan="2">Windows</td>
+                <td>.py</td>
                 <td><a download target="_blank" href="/assets/windows.zip">Download</a></td>
-                <td>This requires that you have Python 2 or 3 installed and added to <code
-                        title="Environment Variable">PATH</code> and the tkinter module enabled.</td>
+                <td>Python 2 or 3 installed and added to <code title="Environment Variable">PATH</code>, with the
+                    Tkinter module enabled.</td>
+            </tr>
+            <tr>
+                <td>.exe</td>
+                <td><a target="_blank" href="https://github.com/ichaoX/ext-file/releases/">Release</a></td>
+                <td>None</td>
             </tr>
             <tr>
                 <td>Linux</td>
+                <td>.py</td>
                 <td><a download target="_blank" href="/assets/linux.zip">Download</a></td>
-                <td>This requires that you have the tkinter module installed.</td>
+                <td>Tkinter module installed.</td>
             </tr>
             <tr>
                 <td>Other</td>
                 <td>--</td>
-                <td>You can refer to other system installers and <a target="_blank"
+                <td>--</td>
+                <td>Notes: You can refer to other system installers and <a target="_blank"
                         href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_manifests#manifest_location">Manifest
                         location</a> for installation.
                 </td>
