@@ -1,0 +1,37 @@
+.ext-code-editor {
+    min-height: 300px;
+    height: 300px;
+    width: 100%;
+    resize: vertical;
+    overflow-y: hidden;
+    background-color: #eee;
+}
+
+.ext-code-editor iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.ext-code-editor--loading {
+    animation: ext-code-editor--loading 1s infinite alternate;
+    pointer-events: none;
+}
+
+.ext-code-editor--loading iframe {
+    display: none;
+}
+
+.ext-code-editor--disconnected {
+    opacity: 0.2;
+}
+
+@keyframes ext-code-editor--loading {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 0.5;
+    }
+}

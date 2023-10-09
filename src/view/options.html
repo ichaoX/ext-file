@@ -71,8 +71,15 @@
         button+button {
             margin-left: 1rem;
         }
+
+        .ext-code-editor {
+            border: 1px solid #ccc;
+            resize: both !important;
+        }
     </style>
     <script src="/lib/util.js"></script>
+    <link href="/lib/code-editor/editor.css" rel="stylesheet">
+    <script src="/lib/code-editor/editor.js"></script>
 </head>
 
 <body>
@@ -81,12 +88,14 @@
         <label> * Match patterns
             <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>
             <br />
-            <textarea class="options" placeholder='{ "matches": ["*://*.example.com/*"] }'></textarea>
+            <textarea class="options editor" placeholder='{ "matches": ["*://*.example.com/*"] }'
+                data-setting="content_script_match" data-language="json"></textarea>
         </label>
         <label> Configuration parameters
             <span class="help">(<a href="./doc.html#env-vars" target="doc">?</a>)</span>
             <br />
-            <textarea class="env" placeholder="let FS_API_ENABLED = self.isSecureContext;"></textarea>
+            <textarea class="env editor" placeholder="let FS_API_ENABLED = self.isSecureContext;"
+                data-setting="content_script_js" data-language="javascript"></textarea>
         </label>
         <button type="button" class="save">Save</button>
         <button type="button" class="reset right">Reset to default</button>

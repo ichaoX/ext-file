@@ -1,5 +1,6 @@
+let section = document.querySelector(".content-script-options");
+
 (async () => {
-    let section = document.querySelector(".content-script-options");
     let $options = section.querySelector("textarea.options");
     let $env = section.querySelector("textarea.env");
     let key = "content_script_match";
@@ -11,7 +12,9 @@
             if (!options.js.length) delete options.js;
         }
         $env.value = env || '';
+        $env.dispatchEvent(new Event('change'));
         $options.value = JSON.stringify(options, null, " ");
+        $options.dispatchEvent(new Event('change'));
     }
     section.querySelector(".save").onclick = async function (event) {
         try {
@@ -102,4 +105,182 @@
         await getState();
     };
     getState();
+})();
+
+(async () => {
+
+    let createCodeEditor = ($n) => {
+        let key = $n.getAttribute('data-setting');
+        let language = $n.getAttribute('data-language');
+        let editor = codeEditor.create($n, {
+            options: {
+                language,
+                minimap: {
+                    enabled: false,
+                },
+            },
+            events: {
+                async input(event) {
+                    $n.value = await editor.getValue();
+                },
+            },
+            keybindingRules: [
+                {
+                    keybinding: "CtrlCmd+KeyS",
+                    command() {
+                        section.querySelector(".save").onclick();
+                    },
+                },
+            ],
+        });
+        $n.onchange = function () {
+            editor.updateOptions({
+                value: this.value,
+            });
+        };
+        switch (key) {
+            case 'content_script_match': {
+                editor.util.languages.json.setDiagnosticsOptions({
+                    validate: true,
+                    schemas: [
+                        {
+                            uri: "http://example.com/array_string.json",
+                            schema: {
+                                type: "array",
+                                items: {
+                                    type: "string",
+                                },
+                            },
+                        },
+                        {
+                            uri: "http://example.com/ExtensionFileOrCode.json",
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    file: {
+                                        type: "string",
+                                    },
+                                    code: {
+                                        type: "string",
+                                    },
+                                },
+                            },
+                        },
+                        {
+                            uri: "http://example.com/RegisteredContentScriptOptions.json",
+                            fileMatch: true,
+                            schema: {
+                                type: "object",
+                                required: ["matches"],
+                                additionalProperties: false,
+                                properties: {
+                                    matches: {
+                                        description: "An array of match patterns",
+                                        $ref: "http://example.com/array_string.json",
+                                    },
+                                    excludeMatches: {
+                                        description: "An array of match patterns",
+                                        $ref: "http://example.com/array_string.json",
+                                    },
+                                    includeGlobs: {
+                                        description: "An array of globs",
+                                        $ref: "http://example.com/array_string.json",
+                                    },
+                                    excludeGlobs: {
+                                        description: "An array of globs",
+                                        $ref: "http://example.com/array_string.json",
+                                    },
+                                    css: {
+                                        description: "The list of CSS files to inject",
+                                        type: "array",
+                                        items: {
+                                            $ref: "http://example.com/ExtensionFileOrCode.json",
+                                        },
+                                    },
+                                    js: {
+                                        description: "The list of JS files to inject",
+                                        type: "array",
+                                        items: {
+                                            $ref: "http://example.com/ExtensionFileOrCode.json",
+                                        },
+                                    },
+                                    allFrames: {
+                                        description: "If allFrames is `true`, implies that the JavaScript or CSS should be injected into all frames of current page. By default, it's `false` and is only injected into the top frame.",
+                                        type: "boolean",
+                                    },
+                                    matchAboutBlank: {
+                                        description: "If matchAboutBlank is true, then the code is also injected in about:blank and about:srcdoc frames if your extension has access to its parent document. Code cannot be inserted in top-level about:-frames. By default it is `false`.",
+                                        type: "boolean",
+                                    },
+                                    // runAt
+                                    cookieStoreId: {
+                                        description: "Limit the set of matched tabs to those that belong to the given cookie store id",
+                                        oneOf: [
+                                            {
+                                                $ref: "http://example.com/array_string.json",
+                                            },
+                                            {
+                                                type: "string",
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                });
+                break;
+            }
+            case 'content_script_js': {
+                let dataset = [
+                    {
+                        label: 'FS_API_ENABLED',
+                        documentation: 'Enable polyfill for File System API.',
+                    },
+                    {
+                        label: 'FS_OVERRIDE_ENABLED',
+                        documentation: 'Override native `FileSystem*` API to Object.',
+                    },
+                    {
+                        label: 'FS_CLONE_ENABLED',
+                        documentation: 'Preserve methods when cloning `FileSystem*Handle`.',
+                    },
+                    {
+                        label: 'FS_WORKER_ENABLED',
+                        documentation: 'Inject File System API into worker.',
+                    },
+                    {
+                        label: 'FS_FILE_SIZE_LIMIT',
+                        documentation: 'Limit file size (byte) when reading.'
+                    },
+                    {
+                        label: 'FS_FILE_CACHE_EXPIRE',
+                        documentation: 'Clear cache for files not accessed beyond timeout (second).',
+                    },
+                    {
+                        label: 'FS_DEBUG_ENABLED',
+                        documentation: 'Enable Debug mode.',
+                    },
+                ];
+                editor.util.languages.registerCompletionItems("javascript", dataset.map(e => Object.assign({
+                    kind: "Variable",
+                }, e)));
+                break;
+            }
+        }
+    };
+
+    let observer = new IntersectionObserver((entries, opts) => {
+        entries.forEach(entry => {
+            let target = entry.target;
+            let rect = target.getBoundingClientRect();
+            // console.debug(target, rect);
+            if (rect.top == 0 && rect.bottom == 0) return;
+            createCodeEditor(target);
+            observer.unobserve(target);
+        });
+    }, { threshold: 0.05 });
+
+    [...section.querySelectorAll("textarea.editor")].map(n => observer.observe(n));
+
 })();
