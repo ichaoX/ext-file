@@ -76,7 +76,7 @@
         }
 
         .mode .btn[data-action="fs.removePermission"]:hover {
-            color: red;
+            color: #aa4643;
         }
     </style>
     <script src="/lib/util.js"></script>
@@ -87,7 +87,7 @@
             <summary class="title">
                 <span class="origin"></span>
                 <button class="right" type="button" data-action="fs.removePermission" data-origin="">
-                    Remove access
+                    Remove Access
                 </button>
             </summary>
             <div class="permission">
@@ -95,7 +95,7 @@
                     <summary>Edit (Read & Write)</summary>
                     <ul>
                         <li>
-                            <span class="btn" data-action="fs.removePermission" data-mode="readwrite" data-origin=""
+                            <span class="btn" title="Remove Permission" data-action="fs.removePermission" data-mode="readwrite" data-origin=""
                                 data-path="" data-ancestor.ctrl="1" data-descendant.shift="1">-</span>
                             <span class="path text"></span>
                         </li>
@@ -105,7 +105,7 @@
                     <summary>View (Read)</summary>
                     <ul>
                         <li>
-                            <span class="btn" data-action="fs.removePermission" data-mode="read" data-origin=""
+                            <span class="btn" title="Remove Permission" data-action="fs.removePermission" data-mode="read" data-origin=""
                                 data-path="" data-ancestor.ctrl="1" data-descendant.shift="1">-</span>
                             <span class="path text"></span>
                         </li>
