@@ -30,8 +30,7 @@
         }
     },
     "options_ui": {
-        "open_in_tab": false,
-        "browser_style": true,
+        "open_in_tab": true,
         "page": "/view/options.html"
     },
     "web_accessible_resources": [

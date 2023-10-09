@@ -1,6 +1,22 @@
-let section = document.querySelector(".content-script-options");
+self.name = "options";
+
+let $form = document.querySelector("form");
+let $save = $form.querySelector(".save");
+
+$form.addEventListener("change", (event) => {
+    event.preventDefault();
+    $save.disabled = false;
+});
+
+self.addEventListener("beforeunload", (event) => {
+    if (!$save.disabled) {
+        event.preventDefault();
+        return (event.returnValue = "");
+    }
+});
 
 (async () => {
+    let section = document.querySelector(".content-script-options");
     let $options = section.querySelector("textarea.options");
     let $env = section.querySelector("textarea.env");
     let key = "content_script_match";
@@ -12,11 +28,11 @@ let section = document.querySelector(".content-script-options");
             if (!options.js.length) delete options.js;
         }
         $env.value = env || '';
-        $env.dispatchEvent(new Event('change'));
+        $env.dispatchEvent(new Event('change', { bubbles: true }));
         $options.value = JSON.stringify(options, null, " ");
-        $options.dispatchEvent(new Event('change'));
+        $options.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    section.querySelector(".save").onclick = async function (event) {
+    $save.onclick = async function (event) {
         try {
             let options = JSON.parse($options.value);
             if (!Array.isArray(options.js)) options.js = [];
@@ -27,7 +43,8 @@ let section = document.querySelector(".content-script-options");
             }
             await util.sendMessage("fs.contentScriptsRegister", options);
             await util.setSetting(key, options);
-            alert('Saved');
+            this.disabled = true;
+            // alert('Saved');
         } catch (e) {
             console.error(e);
             alert(e.message);
@@ -36,7 +53,7 @@ let section = document.querySelector(".content-script-options");
     }
     section.onkeydown = (event) => {
         if (event.ctrlKey && event.key == "s") {
-            section.querySelector(".save").onclick();
+            $save.click();
             event.preventDefault();
         }
     }
@@ -45,6 +62,7 @@ let section = document.querySelector(".content-script-options");
     }
     let options = await util.getSetting(key);
     setForm(options)
+    $save.disabled = true;
 })();
 
 (async () => {
@@ -112,6 +130,7 @@ let section = document.querySelector(".content-script-options");
     let createCodeEditor = ($n) => {
         let key = $n.getAttribute('data-setting');
         let language = $n.getAttribute('data-language');
+        let currentValue = null;
         let editor = codeEditor.create($n, {
             options: {
                 language,
@@ -121,19 +140,21 @@ let section = document.querySelector(".content-script-options");
             },
             events: {
                 async input(event) {
-                    $n.value = await editor.getValue();
+                    $n.value = currentValue = await editor.getValue();
+                    $n.dispatchEvent(new Event('change', { bubbles: true }));
                 },
             },
             keybindingRules: [
                 {
                     keybinding: "CtrlCmd+KeyS",
                     command() {
-                        section.querySelector(".save").onclick();
+                        $save.click();
                     },
                 },
             ],
         });
         $n.onchange = function () {
+            if (this.value === currentValue) return;
             editor.updateOptions({
                 value: this.value,
             });
@@ -281,6 +302,6 @@ let section = document.querySelector(".content-script-options");
         });
     }, { threshold: 0.05 });
 
-    [...section.querySelectorAll("textarea.editor")].map(n => observer.observe(n));
+    [...$form.querySelectorAll("textarea.editor")].map(n => observer.observe(n));
 
 })();

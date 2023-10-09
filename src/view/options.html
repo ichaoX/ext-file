@@ -83,34 +83,37 @@
 </head>
 
 <body>
-    <details open class="section content-script-options">
-        <summary>Content Script</summary>
-        <label> * Match patterns
-            <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>
-            <br />
-            <textarea class="options editor" placeholder='{ "matches": ["*://*.example.com/*"] }'
-                data-setting="content_script_match" data-language="json"></textarea>
-        </label>
-        <label> Configuration parameters
-            <span class="help">(<a href="./doc.html#env-vars" target="doc">?</a>)</span>
-            <br />
-            <textarea class="env editor" placeholder="let FS_API_ENABLED = self.isSecureContext;"
-                data-setting="content_script_js" data-language="javascript"></textarea>
-        </label>
-        <button type="button" class="save">Save</button>
-        <button type="button" class="reset right">Reset to default</button>
-    </details>
-    <details open class="section app-options">
-        <summary>Native Application
-            <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
-        </summary>
-        <div class="state">
-            <label><span class="label">State</span><span data-state="text" data-status="">Unknown</span></label>
-            <label><span class="label">Version</span><span data-state="version" data-status="">Unknown</span></label>
-        </div>
-        <button type="button" class="recheck">Recheck</button>
-        <button type="button" class="stop hide">Stop</button>
-    </details>
+    <form>
+        <details open class="section content-script-options">
+            <summary>Content Script</summary>
+            <label> * Match patterns
+                <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>
+                <br />
+                <textarea class="options editor" placeholder='{ "matches": ["*://*.example.com/*"] }'
+                    data-setting="content_script_match" data-language="json"></textarea>
+            </label>
+            <label> Configuration parameters
+                <span class="help">(<a href="./doc.html#env-vars" target="doc">?</a>)</span>
+                <br />
+                <textarea class="env editor" placeholder="let FS_API_ENABLED = self.isSecureContext;"
+                    data-setting="content_script_js" data-language="javascript"></textarea>
+            </label>
+            <button type="button" class="save">Save</button>
+            <button type="button" class="reset right">Reset to default</button>
+        </details>
+        <details open class="section app-options">
+            <summary>Native Application
+                <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
+            </summary>
+            <div class="state">
+                <label><span class="label">State</span><span data-state="text" data-status="">Unknown</span></label>
+                <label><span class="label">Version</span><span data-state="version"
+                        data-status="">Unknown</span></label>
+            </div>
+            <button type="button" class="recheck">Recheck</button>
+            <button type="button" class="stop hide">Stop</button>
+        </details>
+    </form>
     <script src="./options.js"></script>
 </body>
 
