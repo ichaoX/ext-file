@@ -119,15 +119,15 @@
         <tbody>
             <tr>
                 <td rowspan="2">Windows</td>
+                <td>.exe</td>
+                <td><a target="_blank" href="https://github.com/ichaoX/ext-file/releases">Releases</a></td>
+                <td>None</td>
+            </tr>
+            <tr>
                 <td>.py</td>
                 <td><a target="_blank" href="/assets/windows.zip">Download</a></td>
                 <td>Python 2 or 3 installed and added to <code title="Environment Variable">PATH</code>, with the
                     Tkinter module enabled.</td>
-            </tr>
-            <tr>
-                <td>.exe</td>
-                <td><a target="_blank" href="https://github.com/ichaoX/ext-file/releases/">Release</a></td>
-                <td>None</td>
             </tr>
             <tr>
                 <td>Linux</td>
@@ -139,7 +139,7 @@
                 <td>Other</td>
                 <td>--</td>
                 <td>--</td>
-                <td>Notes: You can refer to other system installers and <a target="_blank"
+                <td>Notes: You can refer to other installer for similar system and <a target="_blank"
                         href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_manifests#manifest_location">Manifest
                         location</a> for installation.
                 </td>
@@ -160,6 +160,9 @@
         </li>
         <li>
             If the state is <em>Running</em>, the native application is running normally.
+        </li>
+        <li>
+            If the state is otherwise, make sure that the native application and related dependencies have been installed correctly, and try restarting your browser.
         </li>
     </ul>
     <h2 id="content-script"><a href="#content-script">Content Script</a></h2>
