@@ -13,6 +13,7 @@ const FSApi = {
     parts: {},
     data: {
         originPermission: {},
+        originPrompt: {},
     },
     async port() {
         if (!this._port) {
@@ -88,6 +89,15 @@ const FSApi = {
                 message.data = data;
             }
             return await this.request(message);
+        },
+        async showDirectoryPicker(...args) {
+            return await this.picker(...args);
+        },
+        async showOpenFilePicker(...args) {
+            return await this.picker(...args);
+        },
+        async showSaveFilePicker(...args) {
+            return await this.picker(...args);
         },
         async picker(message, sender) {
             let origin = message.origin;
@@ -173,6 +183,9 @@ const FSApi = {
             let options = Object.assign({ origin: message.origin }, message.data || {})
             return util.wrapResponse(await this.t.queryPermission(options));
         },
+        async requestPermission(message) {
+            return util.wrapResponse(null);
+        },
         async setPermission(message) {
             let options = Object.assign({ origin: message.origin }, message.data || {})
             return util.wrapResponse(await this.t.setPermission(options));
@@ -180,6 +193,25 @@ const FSApi = {
         async removePermission(message) {
             let options = Object.assign({ origin: message.origin }, message.data || {})
             return util.wrapResponse(await this.t.removePermission(options));
+        },
+        async getPrompt(message) {
+            let data = message.data || {};
+            let p = this.t.data.originPrompt[data.origin];
+            let result = null;
+            if (p) {
+                result = {
+                    id: p.id,
+                    message: p.message,
+                    resolveKeys: Object.keys(p.resolves),
+                };
+            }
+            return util.wrapResponse(result);
+        },
+        async resolvePrompt(message) {
+            let data = message.data || {};
+            let p = this.t.data.originPrompt[data.origin];
+            if (!(p && data.id === p.id)) return util.wrapResponse('Gone', 410);
+            return util.wrapResponse(await p.resolves[data.key]());
         },
         async contentScriptsRegister(message) {
             return util.wrapResponse(await this.t.contentScriptsRegister(message.data));
@@ -191,18 +223,183 @@ const FSApi = {
             return util.wrapResponse(await this.t.crypto.decrypt(message.data));
         },
     },
+    externalAction: {
+        get t() {
+            return FSApi;
+        },
+        _PERM_MODE: {
+            // XXX
+            encrypt: null,
+            decrypt: null,
+            showDirectoryPicker: null,
+            separator: null,
+            queryPermission: null,
+
+            isdir: FileSystemPermissionModeEnum.READ,
+            getKind: FileSystemPermissionModeEnum.READ,
+            scandir: FileSystemPermissionModeEnum.READ,
+            exists: FileSystemPermissionModeEnum.READ,
+            stat: FileSystemPermissionModeEnum.READ,
+            read: FileSystemPermissionModeEnum.READ,
+
+            touch: FileSystemPermissionModeEnum.READWRITE,
+            write: FileSystemPermissionModeEnum.READWRITE,
+            mkdir: FileSystemPermissionModeEnum.READWRITE,
+            rm: FileSystemPermissionModeEnum.READWRITE,
+        },
+        _403: util.wrapResponse('Forbidden', 403),
+        async _action(message, sender) {
+            let context = this.t.action;
+            if ('function' === typeof context[message.action]) {
+                return await context[message.action](message, sender);
+            } else {
+                return await context.request(message);
+            }
+        },
+        async _hasPermission(message, pathKey = 'path', mode = FileSystemPermissionModeEnum.READ) {
+            let data = message.data || {};
+            return data[pathKey] && (await this.t.queryPermission({
+                path: data[pathKey],
+                mode,
+                origin: message.origin,
+            }) === PermissionStateEnum.GRANTED);
+        },
+        async _verifyAndRequest(message) {
+            let action = message.action || '';
+            let mode = this._PERM_MODE[action];
+            if (mode !== null) {
+                if (!mode || !await this._hasPermission(message, 'path', mode)) return this._403;
+            }
+            return await this._action(message);
+        },
+        async requestPermission(message, sender) {
+            let data = message.data || {};
+            let origin = message.origin;
+            if (await this._hasPermission(message, 'path', data.mode)) return util.wrapResponse(PermissionStateEnum.GRANTED);
+            let originPrompt = this.t.data.originPrompt;
+            while (originPrompt[origin]) {
+                await originPrompt[origin].promise;
+                if (await this._hasPermission(message, 'path', data.mode)) return util.wrapResponse(PermissionStateEnum.GRANTED);
+            }
+            let id = this.t.createId();
+            let resolve;
+            let promise = new Promise(r => (resolve = () => {
+                if (originPrompt?.[origin].id == id) {
+                    delete originPrompt[origin];
+                }
+                r();
+            }));
+            originPrompt[origin] = {
+                id,
+                promise,
+                resolve,
+                message,
+                sender,
+                resolves: {
+                    1: async () => {
+                        try {
+                            return await this.t.setPermission({
+                                origin,
+                                path: data.path,
+                                mode: data.mode,
+                                state: PermissionStateEnum.GRANTED,
+                            });
+                        } finally {
+                            resolve();
+                        }
+                    },
+                    0: () => {
+                        resolve();
+                    },
+                }
+            };
+            await new Promise((r) => setTimeout(r, 1000));
+            let url = browser.runtime.getURL("/view/prompt.html") + `?origin=${encodeURIComponent(origin)}`;
+            try {
+                await browser.tabs.create({ url, active: true });
+                await promise;
+            } catch (e) {
+                console.warn(e);
+            } finally {
+                let state = await this.t.queryPermission({
+                    path: data.path,
+                    mode: data.mode,
+                    origin: origin,
+                });
+                return util.wrapResponse(state);
+            }
+        },
+        async setPermission(message) {
+            let data = message.data || {};
+            if (data.state === PermissionStateEnum.GRANTED) {
+                if (!await this._hasPermission(message, 'path', data.mode)) return this._403;
+            }
+            return await this._action(message);
+        },
+        async showOpenFilePicker(message, sender) {
+            let origin = message.origin;
+            let result = await this._action(message, sender);
+            if (result.code == 200) {
+                let paths = result.data;
+                if (paths && Array.isArray(paths)) {
+                    for (let path of paths) {
+                        await this.t.setPermission({
+                            path,
+                            state: PermissionStateEnum.GRANTED,
+                            mode: FileSystemPermissionModeEnum.READ,
+                            origin,
+                        });
+                    }
+                }
+            }
+            return result;
+        },
+        async showSaveFilePicker(message, sender) {
+            let origin = message.origin;
+            let result = await this._action(message, sender);
+            if (result.code == 200) {
+                let path = result.data;
+                if (path) {
+                    await this.t.setPermission({
+                        path,
+                        state: PermissionStateEnum.GRANTED,
+                        mode: FileSystemPermissionModeEnum.READWRITE,
+                        origin,
+                    });
+                }
+            }
+            return result;
+        },
+        async mv(message) {
+            let mode = FileSystemPermissionModeEnum.READWRITE;
+            if (!await this._hasWritePermission(message, 'src', mode)) return this._403;
+            if (!await this._hasWritePermission(message, 'dst', mode)) return this._403;
+            return await this._action(message);
+        },
+    },
     async onMessage(message, sender, sendResponse) {
         if ('function' === typeof this.action[message.action]) {
             return await this.action[message.action](message, sender);
         } else {
-            switch (message.action) {
-                case 'showDirectoryPicker':
-                case 'showOpenFilePicker':
-                case 'showSaveFilePicker':
-                    return await this.action.picker(message, sender);
-                default:
-                    return await this.action.request(message);
-            }
+            return await this.action.request(message);
+        }
+    },
+    async onMessageExternal(message, sender, sendResponse) {
+        let action = message.action || '';
+        let context = this.externalAction;
+        // XXX
+        let origin = (new URL(sender.url)).origin;
+        if (!('origin' in message)) message.origin = origin;
+        if (!origin || origin === "null" || origin !== message.origin) {
+            console.warn(sender, message);
+            return util.wrapResponse('Unauthorized', 401);
+        }
+        if (!action.startsWith('_') && 'function' === typeof context[action]) {
+            return await context[action](message, sender);
+        } else if (context._PERM_MODE.hasOwnProperty(action)) {
+            return await context._verifyAndRequest(message, sender);
+        } else {
+            return context._403;
         }
     },
     disconnect() {

@@ -525,10 +525,19 @@ self.__fs_init = function (config = {}) {
             if (!root) root = path;
             let state = await tool.queryPermission(path, mode);
             if (PermissionStateEnum.GRANTED !== state) {
-                let message = `<${scope.origin}> will be able to ${mode === 'read' ? 'view' : 'edit'} (${mode}) files in '${root}' in this session`;
-                // XXX deny
-                state = !isWorker && confirm(message) ? PermissionStateEnum.GRANTED : PermissionStateEnum.PROMPT;
-                await tool.setPermission(root, state, mode);
+                state = PermissionStateEnum.PROMPT;
+                if (!isWorker) {
+                    let r = await sendMessage('fs.requestPermission', { path: root, mode });
+                    if (r === null) {
+                        let message = `<${scope.origin}> will be able to ${mode === 'read' ? 'view' : 'edit'} (${mode}) files in '${root}' in this session`;
+                        r = confirm(message);
+                        // XXX deny
+                        state = r ? PermissionStateEnum.GRANTED : PermissionStateEnum.PROMPT;
+                        await tool.setPermission(root, state, mode);
+                    } else {
+                        state = r;
+                    }
+                }
             }
             debug('permission', path, mode, state);
             return state;
