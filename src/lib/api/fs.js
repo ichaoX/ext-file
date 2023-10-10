@@ -611,7 +611,7 @@ self.__fs_init = function (config = {}) {
     }
 
 
-    if (typeof FS_CLONE_ENABLED === "undefined" || FS_CLONE_ENABLED) {
+    if (typeof FS_CLONE_ENABLED !== "undefined" && FS_CLONE_ENABLED) {
 
         let defProp = (k, v, c = () => true) => {
             // debug(k, v);
