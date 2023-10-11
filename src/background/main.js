@@ -23,10 +23,11 @@ let asyncMessage = (handler) => {
 };
 
 util.addListener(browser.runtime.onMessage, (message, sender, sendResponse) => {
+    util.log(message);
     return asyncMessage(() => {
         message.data = message.data || {};
-        let action = message.action.split(".", 2);
-        util.log('message', message);
+        let action = message.action.split(".");
+        if (action.length > 2) action.push(action.splice(1).join('.'));
         switch (action[0]) {
             case 'fs':
                 message.action = action[1];
@@ -42,10 +43,11 @@ util.addListener(browser.runtime.onMessage, (message, sender, sendResponse) => {
 });
 
 util.addListener(browser.runtime.onMessageExternal, (message, sender, sendResponse) => {
+    util.log(message);
     return asyncMessage(() => {
         message.data = message.data || {};
-        let action = message.action.split(".", 2);
-        util.log('message', message);
+        let action = message.action.split(".");
+        if (action.length > 2) action.push(action.splice(1).join('.'));
         switch (action[0]) {
             case 'ext:fs':
                 message.action = action[1];

@@ -23,6 +23,12 @@ self.__fs_init = function (config = {}) {
                 path = handle;
                 break;
         }
+        if (config.isExternal && path) {
+            try {
+                path = '…/' + await tool.basename(path);
+            } catch (e) {
+            }
+        }
         debug(`%c${path.replace(/%/g, '%%')}`, 'text-decoration: underline;', ...args);
     }
 
@@ -202,7 +208,7 @@ self.__fs_init = function (config = {}) {
             await debugHandle(this, 'isSameEntry', fileSystemHandle);
             let path = await tool.meta(this).path();
             if (!fileSystemHandle || !fileSystemHandle.kind) throw new TypeError(`parameter 1 is not of type 'FileSystemHandle'.`);
-            return !!(fileSystemHandle.kind === this.kind && fileSystemHandle._meta?.cpath && await tool.decrypt(fileSystemHandle._meta.cpath) === path);
+            return !!(fileSystemHandle.kind === this.kind && fileSystemHandle._meta?.cpath && '' === await tool.diffPath(path, await tool.parsePath(fileSystemHandle._meta.cpath)));
         },
         async queryPermission(fileSystemHandlePermissionDescriptor) {
             await debugHandle(this, 'queryPermission', fileSystemHandlePermissionDescriptor);
@@ -238,10 +244,9 @@ self.__fs_init = function (config = {}) {
                 name = destination;
                 destination = null;
             }
-            await tool.verifyName(name);
+            let newPath = await tool.joinName(newDirectory, name);
             if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            if (newDirectory == await tool.dirname(path) && name === this.name) return;
-            let newPath = newDirectory + "/" + name;
+            if ('' === await tool.diffPath(path, newPath)) return;
             if (await tool.requestPermission({ path: newPath, root: destinationMeta?.root }, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
             if (!await sendMessage('fs.isdir', { path: newDirectory })) throw NotFoundError;
             // if (await sendMessage('fs.exists', { path: newPath })) throw InvalidModificationError;
@@ -250,7 +255,7 @@ self.__fs_init = function (config = {}) {
             } catch (e) {
                 throw InvalidModificationError;
             }
-            this._meta.cpath = await tool.encrypt(newPath);
+            this._meta.cpath = await tool.cpath(newPath);
             this.name = name;
             fileCache.delete(path);
         },
@@ -291,8 +296,8 @@ self.__fs_init = function (config = {}) {
             await debugHandle(this, 'keys');
             let path = await tool.meta(this).path();
             let list = await tool.scandir(path);
-            for (let path of list) {
-                yield path;
+            for (let name of list) {
+                yield name;
             }
         },
         values: async function* () {
@@ -307,17 +312,13 @@ self.__fs_init = function (config = {}) {
         entries: async function* () {
             await debugHandle(this, 'entries');
             let meta = tool.meta(this);
-            let path = await meta.path();
-            let root = await meta.root();
-            let dpath = path;
             // TODO
             let gen = getWrapped(this).keys();
             while (true) {
                 let i = await gen.next();
                 if (i.done) break;
                 let name = i.value;
-                let path = dpath + '/' + name;
-                let handle = await createFileSystemHandle(path, await tool.getKind(path), root);
+                let handle = await getSubFileSystemHandle(meta, name);
                 let result = cloneIntoScope([handle.name]);
                 result.push(handle);
                 yield result;
@@ -325,72 +326,27 @@ self.__fs_init = function (config = {}) {
         },
         async getDirectoryHandle(name, options) {
             await debugHandle(this, 'getDirectoryHandle', name, options);
-            let meta = tool.meta(this);
-            let path = await meta.path();
-            options = options || {};
-            await tool.verifyName(name);
-            path = path + '/' + name;
-            let root = await meta.root();
-            if ((options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            let kind = await tool.getKind(path);
-            let handle;
-            if (kind !== FileSystemHandleKindEnum.DIRECTORY) {
-                if (kind) {
-                    throw TypeMismatchError;
-                } else if (options.create) {
-                    await sendMessage('fs.mkdir', { path });
-                    handle = await createFileSystemDirectoryHandle(path, root);
-                } else {
-                    throw NotFoundError;
-                }
-            }
-            if (!handle) handle = await createFileSystemDirectoryHandle(path, root);
-            return handle;
+            return await getSubFileSystemHandle(tool.meta(this), name, FileSystemHandleKindEnum.DIRECTORY, options);
         },
         async getFileHandle(name, options) {
             await debugHandle(this, 'getFileHandle', name, options);
-            let meta = tool.meta(this);
-            let path = await meta.path();
-            options = options || {};
-            await tool.verifyName(name);
-            path = path + '/' + name;
-            let root = await meta.root();
-            if ((options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            let kind = await tool.getKind(path);
-            let handle;
-            if (kind !== FileSystemHandleKindEnum.FILE) {
-                if (kind) {
-                    throw TypeMismatchError;
-                } else if (options.create) {
-                    await sendMessage('fs.touch', { path });
-                    handle = await createFileSystemFileHandle(path, root);
-                } else {
-                    throw NotFoundError;
-                }
-            }
-            if (!handle) handle = await createFileSystemFileHandle(path, root);
-            return handle;
+            return await getSubFileSystemHandle(tool.meta(this), name, FileSystemHandleKindEnum.FILE, options);
         },
         async removeEntry(name, options) {
             await debugHandle(this, 'removeEntry', name, options);
             let meta = tool.meta(this);
             let path = await meta.path();
-            await tool.verifyName(name);
-            path = path + '/' + name;
+            path = await tool.joinName(path, name);
             await tool.remove({ path, root: meta.root }, options);
         },
         async resolve(possibleDescendant) {
             await debugHandle(this, 'resolve', possibleDescendant);
             let path = await tool.meta(this).path();
             if (!possibleDescendant?.kind) throw new TypeError(`parameter 1 is not of type 'FileSystemHandle'.`);
-            let result = null;
             let possibleDescendantPath = await tool.meta(possibleDescendant).path();
-            if (possibleDescendantPath === path) {
-                result = [];
-            } else if (possibleDescendantPath.startsWith(path + '/')) {
-                result = possibleDescendantPath.slice(path.length + 1).split('/');
-            }
-            return result;
+            let r = await tool.diffPath(possibleDescendantPath, path);
+            if (typeof r !== 'string') return null;
+            return r.split('/').filter(n => n !== '');
         },
         get [Symbol.asyncIterator]() {
             return this.entries;
@@ -398,16 +354,19 @@ self.__fs_init = function (config = {}) {
     }), _FileSystemHandleProto);
 
     let createFileSystemHandle = async (path, kind = FileSystemHandleKindEnum.FILE, root = null) => {
+        let name = null;
+        if (Array.isArray(path) && path.length == 2) [path, name] = path;
         path = await tool.normalPath(path);
-        let cpath = await tool.encrypt(path);
-        let croot = root ? await tool.encrypt(root) : cpath;
+        if (name === null) name = await tool.basename(path);
+        let cpath = await tool.cpath(path);
+        let croot = root ? await tool.cpath(root) : cpath;
         let handle = {
             _meta: {
                 cpath,
                 croot,
             },
             kind,
-            name: await tool.basename(path),
+            name,
             // __proto__: _FileSystemHandlePrototype
         };
         let proto = _FileSystemHandleProto;
@@ -419,8 +378,32 @@ self.__fs_init = function (config = {}) {
         return setProto(cloneIntoScope(handle), proto);
     };
 
-    let createFileSystemFileHandle = (path, root) => createFileSystemHandle(path, FileSystemHandleKindEnum.FILE, root);
-    let createFileSystemDirectoryHandle = (path, root) => createFileSystemHandle(path, FileSystemHandleKindEnum.DIRECTORY, root);
+    let getSubFileSystemHandle = async (meta, name, kind = null, options = {}) => {
+        let path = await meta.path();
+        let root = await meta.root();
+        options = options || {};
+        path = await tool.joinName(path, name);
+        if (kind !== null && (options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+        let realKind = await tool.getKind(path);
+        if (kind && realKind && realKind !== kind) {
+            throw TypeMismatchError;
+        } else if (kind && options.create) {
+            switch (kind) {
+                case FileSystemHandleKindEnum.FILE:
+                    await sendMessage('fs.touch', { path });
+                    break;
+                case FileSystemHandleKindEnum.DIRECTORY:
+                    await sendMessage('fs.mkdir', { path });
+                    break;
+                default:
+                    throw TypeMismatchError;
+            }
+            realKind = kind;
+        } else if (!realKind) {
+            throw NotFoundError;
+        }
+        return await createFileSystemHandle([path, name], realKind, root);
+    };
 
     if (!isWorker) {
 
@@ -446,7 +429,7 @@ self.__fs_init = function (config = {}) {
                 let path = await sendMessage('fs.showDirectoryPicker', options);
                 if (!path) throw AbortError;
                 if (await tool.requestPermission(path, options.mode) !== PermissionStateEnum.GRANTED) throw AbortError;
-                let result = await createFileSystemDirectoryHandle(path);
+                let result = await createFileSystemHandle(path, FileSystemHandleKindEnum.DIRECTORY);
                 return result;
             });
         }
@@ -468,7 +451,7 @@ self.__fs_init = function (config = {}) {
                         await sendMessage('fs.touch', { path });
                     }
                 }
-                let result = await createFileSystemFileHandle(path);
+                let result = await createFileSystemHandle(path, FileSystemHandleKindEnum.FILE);
                 return result;
             });
         }
@@ -482,23 +465,48 @@ self.__fs_init = function (config = {}) {
             if (!regexp) return this._separator;
             return `/${this._separator === '\\' ? '\\\\' : ''}`;
         },
+        async _resolvePath(method, path, options = {}) {
+            return await sendMessage(`fs.resolvePath.${method}`, Object.assign({
+                path,
+            }, options));
+        },
         async normalPath(path) {
             if ("function" === typeof path) path = await path();
             path = path || '';
+            if (config.isExternal) return path;
             return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/, '/');
         },
+        async diffPath(path, root) {
+            if (config.isExternal) return await this._resolvePath('diffPath', path, { root });
+            let result = null;
+            let droot = root.replace(/\/?$/, '/');
+            if (root === path) {
+                result = '';
+            } else if (path.startsWith(droot)) {
+                result = path.slice(droot.length);
+            }
+            return result;
+        },
         async basename(path) {
+            if (config.isExternal) return await this._resolvePath('basename', path);
             let separators = await this.separator(true);
             return path.replace(new RegExp(`^.*[${separators}]`), '');
         },
         async dirname(path) {
+            if (config.isExternal) return await this._resolvePath('dirname', path);
             let separators = await this.separator(true);
             return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+        },
+        async joinName(path, name) {
+            await this.verifyName(name);
+            if (config.isExternal) return await this._resolvePath('joinName', path, { name });
+            return path + '/' + name;
         },
         async verifyName(name) {
             if (typeof name !== 'string' || ['', '.', '..'].includes(name) || (new RegExp(`[${await this.separator(true)}]`)).test(name)) throw new TypeError(`Name is not allowed.`);
             return true;
         },
+
         async queryPermission(path, mode = FileSystemPermissionModeEnum.READ) {
             return await sendMessage('fs.queryPermission', {
                 path,
@@ -521,7 +529,7 @@ self.__fs_init = function (config = {}) {
             }
             if (root) root = await this.normalPath(root);
             if (path) path = await this.normalPath(path);
-            if (root && !(path === root || path.startsWith(root + '/'))) root = null;
+            if (root && null === await this.diffPath(path, root)) root = null;
             if (!root) root = path;
             let state = await tool.queryPermission(path, mode);
             if (PermissionStateEnum.GRANTED !== state) {
@@ -529,7 +537,9 @@ self.__fs_init = function (config = {}) {
                 if (!isWorker) {
                     let r = await sendMessage('fs.requestPermission', { path: root, mode });
                     if (r === null) {
-                        let message = `<${scope.origin}> will be able to ${mode === 'read' ? 'view' : 'edit'} (${mode}) files in '${root}' in this session`;
+                        let _path = root;
+                        if (config.isExternal) _path = '…/' + await tool.basename(_path);
+                        let message = `<${scope.origin}> will be able to ${mode === 'read' ? 'view' : 'edit'} (${mode}) files in '${_path}' in this session`;
                         r = confirm(message);
                         // XXX deny
                         state = r ? PermissionStateEnum.GRANTED : PermissionStateEnum.PROMPT;
@@ -570,7 +580,10 @@ self.__fs_init = function (config = {}) {
             }
             fileCache.delete(path);
         },
-        async encrypt(text, cache = true) {
+
+        async cpath(path) {
+            if (config.isExternal) return path;
+            let text = path, cache = true;
             if (!text) return text;
             if (text in encryptCache) return encryptCache[text];
             let base64 = await sendMessage('fs.encrypt', text);
@@ -580,7 +593,9 @@ self.__fs_init = function (config = {}) {
             }
             return base64;
         },
-        async decrypt(base64, cache = true) {
+        async parsePath(path) {
+            if (config.isExternal) return path;
+            let base64 = path, cache = true;
             if (!base64) return base64;
             if (base64 in decryptCache) return decryptCache[base64];
             let text = await sendMessage('fs.decrypt', base64);
@@ -594,14 +609,17 @@ self.__fs_init = function (config = {}) {
             let meta = handle?._meta || handle;
             let cpath = meta?.cpath;
             let croot = meta?.croot;
+            let _path, _root;
             return {
                 cpath,
                 croot,
                 async path() {
-                    return await tool.decrypt(cpath);
+                    if (!_path) _path = await tool.parsePath(cpath);
+                    return _path;
                 },
                 async root() {
-                    return await tool.decrypt(croot);
+                    if (!_root) _root = await tool.parsePath(croot);
+                    return _root;
                 },
             };
         },

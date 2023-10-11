@@ -5,6 +5,9 @@ const FSApi = {
     get connected() {
         return !!this._port;
     },
+    env: {
+        version: browser.runtime.getManifest().version,
+    },
     createId() {
         this._i = (this._i + 1) % (1000 - 100);
         return `${Date.now()}-${Math.round(100 + this._i)}`;
@@ -228,24 +231,28 @@ const FSApi = {
             return FSApi;
         },
         _PERM_MODE: {
-            // XXX
-            encrypt: null,
-            decrypt: null,
-            showDirectoryPicker: null,
-            separator: null,
-            queryPermission: null,
+            showDirectoryPicker: { returnPath: true },
+            separator: {},
+            queryPermission: { args: { path: null } },
+            // XXX: path = dirname(readablePath)
+            isdir: { args: { path: null } },
 
-            isdir: FileSystemPermissionModeEnum.READ,
-            getKind: FileSystemPermissionModeEnum.READ,
-            scandir: FileSystemPermissionModeEnum.READ,
-            exists: FileSystemPermissionModeEnum.READ,
-            stat: FileSystemPermissionModeEnum.READ,
-            read: FileSystemPermissionModeEnum.READ,
+            getKind: { args: { path: FileSystemPermissionModeEnum.READ } },
+            scandir: { args: { path: FileSystemPermissionModeEnum.READ } },
+            exists: { args: { path: FileSystemPermissionModeEnum.READ } },
+            stat: { args: { path: FileSystemPermissionModeEnum.READ } },
+            read: { args: { path: FileSystemPermissionModeEnum.READ } },
 
-            touch: FileSystemPermissionModeEnum.READWRITE,
-            write: FileSystemPermissionModeEnum.READWRITE,
-            mkdir: FileSystemPermissionModeEnum.READWRITE,
-            rm: FileSystemPermissionModeEnum.READWRITE,
+            touch: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            write: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            mkdir: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            rm: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            mv: {
+                args: {
+                    src: FileSystemPermissionModeEnum.READWRITE,
+                    dst: FileSystemPermissionModeEnum.READWRITE,
+                },
+            },
         },
         _403: util.wrapResponse('Forbidden', 403),
         async _action(message, sender) {
@@ -264,15 +271,56 @@ const FSApi = {
                 origin: message.origin,
             }) === PermissionStateEnum.GRANTED);
         },
+        async _decryptAndVerifyArgs(message, args = {}) {
+            if (args) {
+                let data = Object.assign({}, message.data || {});
+                message.data = data;
+                for (let key in args) {
+                    if (data[key]) data[key] = await this.t.normalPath(await this.t.crypto.decrypt(data[key]));
+                    let mode = args[key];
+                    if (mode !== null) {
+                        if (!await this._hasPermission(message, key, mode)) return false;
+                    }
+                }
+            }
+            return true;
+        },
+        async _encryptPath(path) {
+            if (!path) return path;
+            if (Array.isArray(path)) {
+                return await Promise.all(path.map(e => this._encryptPath(e)));
+            }
+            path = await this.t.normalPath(path);
+            return await this.t.crypto.encrypt(path);
+        },
+        async _encryptResponse(response, handler = null) {
+            if (response.code === 200) {
+                if (handler) response.data = await handler(response.data);
+                response.data = await this._encryptPath(response.data);
+            }
+            return response;
+        },
         async _verifyAndRequest(message) {
             let action = message.action || '';
-            let mode = this._PERM_MODE[action];
-            if (mode !== null) {
-                if (!mode || !await this._hasPermission(message, 'path', mode)) return this._403;
+            let pattern = this._PERM_MODE[action];
+            if (pattern) {
+                message = Object.assign({}, message);
+                if (!await this._decryptAndVerifyArgs(message, pattern.args)) return this._403;
             }
-            return await this._action(message);
+            let r = await this._action(message);
+            if (pattern && pattern.returnPath) r = await this._encryptResponse(r);
+            return r;
+        },
+        async getEnv(message) {
+            let data = message.data || {};
+            let env = this.t.env;
+            env.app = await this.t.constants(data.reload);
+            return util.wrapResponse(env);
         },
         async requestPermission(message, sender) {
+            // TODO
+            if (sender.id === browser.runtime.id) return util.wrapResponse(null);
+            if (!await this._decryptAndVerifyArgs(message, { path: null })) return this._403;
             let data = message.data || {};
             let origin = message.origin;
             if (await this._hasPermission(message, 'path', data.mode)) return util.wrapResponse(PermissionStateEnum.GRANTED);
@@ -329,36 +377,34 @@ const FSApi = {
                 return util.wrapResponse(state);
             }
         },
-        async setPermission(message) {
+        async setPermission(message, sender) {
             let data = message.data || {};
-            if (data.state === PermissionStateEnum.GRANTED) {
-                if (!await this._hasPermission(message, 'path', data.mode)) return this._403;
-            }
+            let mode = data.state === PermissionStateEnum.GRANTED ? data.mode : null;
+            // TODO
+            if (sender.id === browser.runtime.id) mode = null;
+            if (!await this._decryptAndVerifyArgs(message, { path: mode })) return this._403;
             return await this._action(message);
         },
         async showOpenFilePicker(message, sender) {
             let origin = message.origin;
             let result = await this._action(message, sender);
-            if (result.code == 200) {
-                let paths = result.data;
-                if (paths && Array.isArray(paths)) {
-                    for (let path of paths) {
-                        await this.t.setPermission({
-                            path,
-                            state: PermissionStateEnum.GRANTED,
-                            mode: FileSystemPermissionModeEnum.READ,
-                            origin,
-                        });
-                    }
-                }
-            }
-            return result;
+            return await this._encryptResponse(result, async (paths) => {
+                if (Array.isArray(paths)) await Promise.all(paths.map(async (path) => {
+                    if (!path) return;
+                    await this.t.setPermission({
+                        path,
+                        state: PermissionStateEnum.GRANTED,
+                        mode: FileSystemPermissionModeEnum.READ,
+                        origin,
+                    });
+                }));
+                return paths;
+            });
         },
         async showSaveFilePicker(message, sender) {
             let origin = message.origin;
             let result = await this._action(message, sender);
-            if (result.code == 200) {
-                let path = result.data;
+            return await this._encryptResponse(result, async (path) => {
                 if (path) {
                     await this.t.setPermission({
                         path,
@@ -367,14 +413,50 @@ const FSApi = {
                         origin,
                     });
                 }
-            }
-            return result;
+                return path;
+            });
         },
-        async mv(message) {
-            let mode = FileSystemPermissionModeEnum.READWRITE;
-            if (!await this._hasWritePermission(message, 'src', mode)) return this._403;
-            if (!await this._hasWritePermission(message, 'dst', mode)) return this._403;
-            return await this._action(message);
+        async resolvePath(message) {
+            if (!await this._decryptAndVerifyArgs(message, { path: null, root: null })) return this._403;
+            let data = message.data || {};
+            let result;
+            let isPath = false;
+            switch (message.subaction) {
+                case 'basename': {
+                    result = await this.t.basename(data.path);
+                    break;
+                }
+                case 'dirname': {
+                    if (!await this._hasPermission(message, 'path')) return this._403;
+                    result = await this.t.dirname(data.path);
+                    isPath = true;
+                    break;
+                }
+                case 'joinName': {
+                    let { path, name } = data;
+                    await this.t.verifyName(name);
+                    result = path + '/' + name;
+                    isPath = true;
+                    break;
+                }
+                case 'diffPath': {
+                    let { path, root } = data;
+                    result = null;
+                    let droot = root.replace(/\/?$/, '/');
+                    if (root === path) {
+                        result = '';
+                        // XXX: empty root
+                    } else if (root && path.startsWith(droot)) {
+                        result = path.slice(droot.length);
+                    }
+                    break;
+                }
+                default: {
+                    return util.wrapResponse(`[${data.method}] not implemented`, 501);
+                }
+            }
+            if (isPath) result = await this._encryptPath(result);
+            return util.wrapResponse(result);
         },
     },
     async onMessage(message, sender, sendResponse) {
@@ -385,7 +467,8 @@ const FSApi = {
         }
     },
     async onMessageExternal(message, sender, sendResponse) {
-        let action = message.action || '';
+        message = Object.assign({}, message || {});
+        let [action, ...subaction] = (message.action || '').split('.');
         let context = this.externalAction;
         // XXX
         let origin = (new URL(sender.url)).origin;
@@ -394,6 +477,10 @@ const FSApi = {
             console.warn(sender, message);
             return util.wrapResponse('Unauthorized', 401);
         }
+        if (subaction.length > 0) {
+            message.action = action;
+            message.subaction = subaction.join('.');
+        }
         if (!action.startsWith('_') && 'function' === typeof context[action]) {
             return await context[action](message, sender);
         } else if (context._PERM_MODE.hasOwnProperty(action)) {
@@ -401,6 +488,7 @@ const FSApi = {
         } else {
             return context._403;
         }
+        // TODO catch
     },
     disconnect() {
         let error = 'Port disconnected';
@@ -449,6 +537,10 @@ const FSApi = {
     async dirname(path) {
         let separators = await this.separator(true);
         return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+    },
+    async verifyName(name) {
+        if (typeof name !== 'string' || ['', '.', '..'].includes(name) || (new RegExp(`[${await this.separator(true)}]`)).test(name)) throw new TypeError(`Name is not allowed.`);
+        return true;
     },
     getOriginPermission(origin, state = null) {
         if (!this.data.originPermission[origin]) {

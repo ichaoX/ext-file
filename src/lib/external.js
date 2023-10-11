@@ -13,13 +13,13 @@ if (self.__fs_init) {
     let sendMessage = async (action, data) => {
         try {
             action = `ext:${action}`;
-            console.log('request', action, data);
+            // console.log('request', action, data);
             let response = await browser.runtime.sendMessage(extensionId, { action, data, origin: scope.origin || location.origin }, {});
             if (response.code !== 200) {
                 console.warn(response);
                 throw response.data || response;
             }
-            console.log('response', response);
+            // console.log('response', response);
             return response.data;
         } catch (e) {
             if (e && e.trace) {
@@ -35,6 +35,7 @@ if (self.__fs_init) {
         scope,
         debug,
         sendMessage,
+        isExternal: true,
     };
 
     self.__fs_init(config);
