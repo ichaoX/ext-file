@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="/lib/enum.js"></script>
+    <script src="/lib/api/fs.js"></script>
+    <script src="/lib/external.js"></script>
+    <style>
+        label {
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        output {
+            color: darkblue;
+            white-space: pre;
+        }
+
+        textarea {
+            display: block;
+            width: 100%;
+            height: 50vh;
+        }
+    </style>
+</head>
+
+<body>
+    <label>dirHandle:</label>
+    <output class="dir"> </output>
+    <div>
+        <button>openDir</button>
+        <select class="dir" data-var="dirHandle"></select>
+        |
+        <button data-var="dirHandle">moveDir</button>
+        |
+        <button data-var="dirHandle">removeDir</button>
+        <button data-var="dirHandle">removeDirRecursive</button>
+    </div>
+
+    <label>dirHandle.getHandle:</label>
+    <div>
+        <input class="name" placeholder="name" data-var="dirHandle">
+        <button data-var="dirHandle">newFile</button>
+        <button data-var="dirHandle">newDir</button>
+        |
+        <button data-var="dirHandle">removeEntry</button>
+        <button data-var="dirHandle">removeEntryRecursive</button>
+    </div>
+
+    <label>fileHandle:</label>
+    <output class="file"> </output>
+    <div>
+        <button>openFile</button>
+        <button>saveAs</button>
+        |
+        <button data-var="fileHandle">moveFile</button>
+        |
+        <button data-var="fileHandle">removeFile</button>
+    </div>
+
+    <label>fileHandle.writeable:</label>
+    <div>
+        <button data-var="fileHandle">createWritable</button>
+        <button data-var="fileHandle">createWritableKeepExistingData</button>
+        |
+        <button data-var="writeable">seek</button>
+        <button data-var="writeable">truncate</button>
+        <button data-var="writeable">write</button>
+        |
+        <button data-var="writeable">close</button>
+        <button data-var="writeable">abort</button>
+    </div>
+
+    <output class="state"> </output>
+    <textarea></textarea>
+    <script src="./file.js"></script>
+</body>
+
+</html>
