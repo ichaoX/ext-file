@@ -205,6 +205,7 @@ const FSApi = {
                 result = {
                     id: p.id,
                     message: p.message,
+                    sender: p.sender,
                     resolveKeys: Object.keys(p.resolves),
                 };
             }
@@ -213,7 +214,7 @@ const FSApi = {
         async resolvePrompt(message) {
             let data = message.data || {};
             let p = this.t.data.originPrompt[data.origin];
-            if (!(p && data.id === p.id)) return util.wrapResponse('Gone', 410);
+            if (!(p && data.id === p.id)) return util.wrapResponse('Expired', 410);
             return util.wrapResponse(await p.resolves[data.key]());
         },
         async contentScriptsRegister(message) {
@@ -324,18 +325,34 @@ const FSApi = {
             let data = message.data || {};
             let origin = message.origin;
             if (await this._hasPermission(message, 'path', data.mode)) return util.wrapResponse(PermissionStateEnum.GRANTED);
+            let url = browser.runtime.getURL("/view/prompt.html") + `?origin=${encodeURIComponent(origin)}`;
             let originPrompt = this.t.data.originPrompt;
+            if (originPrompt[origin]) {
+                (async () => {
+                    let tabs = await browser.tabs.query({ url, active: true });
+                    if (tabs.length == 0) {
+                        tabs = await browser.tabs.query({ url, active: false });
+                        if (tabs.length > 0) {
+                            await browser.tabs.update(tabs[0].id, { active: true });
+                        }
+                    }
+                })();
+            }
             while (originPrompt[origin]) {
                 await originPrompt[origin].promise;
                 if (await this._hasPermission(message, 'path', data.mode)) return util.wrapResponse(PermissionStateEnum.GRANTED);
             }
             let id = this.t.createId();
             let resolve;
+            let viewTab = async () => {
+                return await browser.tabs.update(sender.tab.id, { active: true });
+            };
             let promise = new Promise(r => (resolve = () => {
                 if (originPrompt?.[origin].id == id) {
                     delete originPrompt[origin];
                 }
                 r();
+                setTimeout(viewTab, 200);
             }));
             originPrompt[origin] = {
                 id,
@@ -344,25 +361,30 @@ const FSApi = {
                 message,
                 sender,
                 resolves: {
-                    1: async () => {
+                    authorize: async () => {
                         try {
-                            return await this.t.setPermission({
+                            await this.t.setPermission({
                                 origin,
                                 path: data.path,
                                 mode: data.mode,
                                 state: PermissionStateEnum.GRANTED,
                             });
+                            return true;
                         } finally {
                             resolve();
                         }
                     },
-                    0: () => {
+                    cancel: () => {
                         resolve();
+                        return true;
                     },
-                }
+                    viewTab: () => {
+                        viewTab();
+                        return false;
+                    },
+                },
             };
-            await new Promise((r) => setTimeout(r, 1000));
-            let url = browser.runtime.getURL("/view/prompt.html") + `?origin=${encodeURIComponent(origin)}`;
+            await new Promise((r) => setTimeout(r, 200));
             try {
                 await browser.tabs.create({ url, active: true });
                 await promise;

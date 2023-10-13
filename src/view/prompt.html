@@ -5,12 +5,149 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="shortcut icon" href="/icon.png">
+    <title>Request Access</title>
     <script src="/lib/util.js"></script>
     <script src="/lib/enum.js"></script>
     <script src="./prompt.js"></script>
+    <style>
+        :root {
+            font-size: 15px;
+        }
+
+        body {
+            /* background-color: #f0f0f2; */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+
+        a,
+        button {
+            border-radius: 4px;
+        }
+
+        .container {
+            width: 600px;
+            margin: 5em auto;
+            padding: 2em;
+            /* background-color: #fdfdff;
+            box-shadow: 2px 3px 7px 2px rgba(0, 0, 0, 0.02); */
+            border-radius: 0.5em;
+            box-sizing: border-box;
+        }
+
+        .title {
+            font-size: 1.75em;
+            font-weight: 300;
+            line-height: 1.2;
+            margin: 0;
+            padding-bottom: 0.4em;
+            margin-bottom: .5em;
+        }
+
+        b[data-text]{
+            white-space: nowrap;
+        }
+
+        [data-text="origin"]::before {
+            content: '<';
+        }
+
+        [data-text="origin"]::after {
+            content: '>';
+        }
+
+        [data-text="path"],
+        [data-text="perm-mode-detail"] {
+            color: darkblue;
+        }
+
+        [data-text="path"]::before {
+            content: "'";
+        }
+
+        [data-text="path"]::after {
+            content: "'";
+        }
+
+        [data-text="perm-mode-detail"][data-value*='edit'],
+        [data-text="sender-id"] {
+            color: darkred;
+        }
+
+        [data-text="external"][data-value=""] {
+            display: none;
+        }
+
+        .button-container {
+            margin-top: 1.2em;
+            display: flex;
+            flex-flow: row wrap;
+            justify-content: end;
+        }
+
+        .button-container>button {
+            appearance: none;
+            min-height: 32px;
+            margin: 4px 8px;
+            margin-top: 1.2em;
+            padding: 0 1.5em;
+            min-width: 6.3em;
+            font-weight: 600;
+            font-size: 1em;
+            border: none;
+        }
+
+        .button-container>button:first-child {
+            margin-inline-start: 0;
+        }
+
+        button.primary {
+            background-color: #0061e0;
+            color: rgb(251, 251, 254);
+        }
+
+        button.primary:hover {
+            background-color: #0250bb;
+        }
+
+        button.primary:active {
+            background-color: #053e94;
+        }
+
+        @media (max-width: 700px) {
+            .container {
+                margin: 0 auto;
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 
 <body>
+    <div class="container">
+        <div class="text-container">
+            <h1 class="title">
+                Let site <span data-text="perm-mode">ACCESS</span> files?
+            </h1>
+            <p>
+                <b data-text="origin" title="Origin">Origin</b> will be able to <b data-text="perm-mode-detail">ACCESS</b> files in <b
+                    data-text="path">PATH</b> during this session<span data-text="external" data-value="">, as requested
+                    by the browser extension with ID <b data-text="sender-id"></b></span>.
+            </p>
+            <p><a href="" target="_blank" data-action="viewTab">View Source Tab (<span
+                        data-text="tab-detail">...</span>)</a></p>
+        </div>
+        <div class="button-container">
+            <button class="" autofocus data-action="cancel">Cancel</button>
+            <button class="primary" data-action="authorize">Allow Access</button>
+        </div>
+    </div>
 </body>
 
 </html>

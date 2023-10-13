@@ -539,7 +539,7 @@ self.__fs_init = function (config = {}) {
                     if (r === null) {
                         let _path = root;
                         if (config.isExternal) _path = '…/' + await tool.basename(_path);
-                        let message = `<${scope.origin}> will be able to ${mode === 'read' ? 'view' : 'edit'} (${mode}) files in '${_path}' in this session`;
+                        let message = `<${scope.origin}> will be able to ${mode === FileSystemPermissionModeEnum.READ ? 'view' : 'edit'} (${mode}) files in '${_path}' during this session`;
                         r = confirm(message);
                         // XXX deny
                         state = r ? PermissionStateEnum.GRANTED : PermissionStateEnum.PROMPT;
