@@ -133,7 +133,8 @@ self.__fs_init = function (config = {}) {
             async write(data) {
                 await debugHandle(handle, 'FileSystemWritableFileStream.write', data);
                 if (state !== StreamStateEnum.WRITABLE) throw new TypeError(`Cannot write to a ${state.toUpperCase()} writable stream`);
-                if (!data.type) data = { type: WriteCommandTypeEnum.WRITE, data };
+                // XXX
+                if (!data.type || (!Object.values(WriteCommandTypeEnum).includes(data.type) && '[object Object]' !== Object.prototype.toString.call(data))) data = { type: WriteCommandTypeEnum.WRITE, data };
                 if (!Object.values(WriteCommandTypeEnum).includes(data.type)) throw new TypeError(`Failed to read the 'type' property from 'WriteParams'`);
                 switch (data.type) {
                     case WriteCommandTypeEnum.WRITE:
