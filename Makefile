@@ -11,8 +11,13 @@ build_app:
 	python "${APP_DIR}/build.py"
 	chmod o+w -R "${APP_DIR}/dist/"*
 
+.PHONY: build_lib_ext
+build_lib_ext:
+	cd "${WEBEXT_DIR}" && \
+	cat lib/enum.js lib/api/fs.js lib/external.js > assets/file-system-access.js
+
 .PHONY: build_assets
-build_assets: build_app
+build_assets: build_lib_ext build_app
 	cd "${APP_DIR}/dist/" && \
 	for dir in */; do \
 		zip -r "${WEBEXT_DIR}/assets/$${dir%/}.zip" "$$dir"; \

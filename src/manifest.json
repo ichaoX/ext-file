@@ -36,6 +36,11 @@
     "web_accessible_resources": [
         "*"
     ],
+    "externally_connectable": {
+        "ids": [
+            "*"
+        ]
+    },
     "browser_specific_settings": {
         "gecko": {
             "id": "file@example.com"
