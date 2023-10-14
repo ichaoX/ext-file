@@ -459,12 +459,13 @@ self.__fs_init = function (config = {}) {
 
     }
 
+    let _separator = null;
+
     let tool = {
-        _separator: null,
         async separator(regexp = false) {
-            if (!this._separator) this._separator = await sendMessage('fs.separator');
-            if (!regexp) return this._separator;
-            return `/${this._separator === '\\' ? '\\\\' : ''}`;
+            if (!_separator) _separator = await sendMessage('fs.separator');
+            if (!regexp) return _separator;
+            return `/${_separator === '\\' ? '\\\\' : ''}`;
         },
         async _resolvePath(method, path, options = {}) {
             return await sendMessage(`fs.resolvePath.${method}`, Object.assign({
@@ -683,6 +684,13 @@ self.__fs_init = function (config = {}) {
                     // XXX
                     workerURL = location.href;
                 } else {
+                    let workerScripts = typeof FS_WORKER_SCRIPTS !== "undefined"
+                        && Array.isArray(FS_WORKER_SCRIPTS)
+                        ? FS_WORKER_SCRIPTS : [
+                            browser.runtime.getURL('/lib/enum.js'),
+                            browser.runtime.getURL('/lib/api/fs.js'),
+                            browser.runtime.getURL('/lib/worker.js'),
+                        ];
                     let text = `//# sourceURL=${browser.runtime.getURL('/.page-worker.js')}
 let FS_DEBUG_ENABLED=${JSON.stringify(typeof FS_DEBUG_ENABLED === 'undefined' ? undefined : FS_DEBUG_ENABLED)};
 let FS_FILE_CACHE_EXPIRE=${JSON.stringify(typeof FS_FILE_CACHE_EXPIRE === 'undefined' ? undefined : FS_FILE_CACHE_EXPIRE)};
@@ -690,9 +698,8 @@ let FS_FILE_SIZE_LIMIT=${JSON.stringify(typeof FS_FILE_SIZE_LIMIT === 'undefined
 let FS_OVERRIDE_ENABLED=${JSON.stringify(typeof FS_OVERRIDE_ENABLED === 'undefined' ? undefined : FS_OVERRIDE_ENABLED)};
 let FS_CLONE_ENABLED=${JSON.stringify(typeof FS_CLONE_ENABLED === 'undefined' ? undefined : FS_CLONE_ENABLED)};
 let FS_WORKER_ENABLED=${JSON.stringify(typeof FS_WORKER_ENABLED === 'undefined' ? undefined : FS_WORKER_ENABLED)};
-importScripts(${JSON.stringify(browser.runtime.getURL('/lib/enum.js'))});
-importScripts(${JSON.stringify(browser.runtime.getURL('/lib/api/fs.js'))});
-importScripts(${JSON.stringify(browser.runtime.getURL('/lib/worker.js'))});
+let FS_WORKER_SCRIPTS=${JSON.stringify(workerScripts || [])};
+FS_WORKER_SCRIPTS.forEach(url=>importScripts(url));
 `;
                     workerURL = scope.URL.createObjectURL(new scope.Blob([text], { type: 'text/javascript' }));
                 }
