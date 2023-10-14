@@ -1,4 +1,4 @@
-{
+if (self.importScripts) {
     let scope = self;
 
     let __baseURI = undefined;

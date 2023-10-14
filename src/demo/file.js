@@ -57,8 +57,6 @@ let readDir = async (dirHandle) => {
             // console.debug(key, handle);
             let option = document.createElement("option");
             option.value = key;
-            // XXX
-            option._handle = handle;
             option.textContent = key + (handle.kind == 'directory' ? '/' : '');
             $dir.appendChild(option);
             i++;
@@ -72,8 +70,9 @@ let readDir = async (dirHandle) => {
 document.body.addEventListener('click', async (event) => {
     let target = event.target;
     if (target.nodeName !== 'BUTTON') return;
+    let action = target.textContent.trim();
     try {
-        switch (target.textContent.trim()) {
+        switch (action) {
             case 'openFile': {
                 [fileHandle] = await showOpenFilePicker({ id: "demo" });
                 await readFile(fileHandle);
@@ -192,6 +191,21 @@ document.body.addEventListener('click', async (event) => {
                 if (fileHandle) await readFile(fileHandle);
                 return;
             }
+
+            case 'workerReadFile': {
+                worker.postMessage({
+                    action,
+                    data: fileHandle,
+                });
+                return;
+            }
+            case 'workerReadDir': {
+                worker.postMessage({
+                    action,
+                    data: dirHandle,
+                });
+                return;
+            }
         }
     } catch (e) {
         console.warn(e);
@@ -246,3 +260,8 @@ $dir.addEventListener('change', async (event) => {
 });
 
 refreshForm();
+
+let worker = new Worker('worker0.js');
+worker.addEventListener("message", (message) => {
+    console.debug(message, message.data);
+});

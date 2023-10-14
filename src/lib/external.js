@@ -1,4 +1,10 @@
-if (self.__fs_init) {
+if (self.__fs_init && self.importScripts) {
+    const __fs_init = self.__fs_init;
+    self.__fs_init = (config = {}, ...args) => {
+        Object.assign(config, { isExternal: true });
+        return __fs_init(config, ...args);
+    };
+} else if (self.__fs_init) {
 
     const extensionId = "file@example.com";
 

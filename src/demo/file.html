@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <title>DEMO</title>
+    <script src="config.js"></script>
     <script src="/assets/file-system-access.js"></script>
     <style>
         label {
@@ -35,6 +36,8 @@
         |
         <button data-var="dirHandle">removeDir</button>
         <button data-var="dirHandle">removeDirRecursive</button>
+        |
+        <button data-var="dirHandle">workerReadDir</button>
     </div>
 
     <label>dirHandle.getHandle:</label>
@@ -56,6 +59,8 @@
         <button data-var="fileHandle">moveFile</button>
         |
         <button data-var="fileHandle">removeFile</button>
+        |
+        <button data-var="fileHandle">workerReadFile</button>
     </div>
 
     <label>fileHandle.writeable:</label>
