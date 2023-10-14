@@ -63,10 +63,5 @@ util.addListener(browser.runtime.onInstalled, async (details) => {
         FSApi.disconnect();
     } catch (e) {
         console.warn(e);
-        setTimeout(() => {
-            browser.tabs.create({
-                url: browser.runtime.getURL('/view/doc.html#app'),
-            });
-        }, 2000);
     }
 });

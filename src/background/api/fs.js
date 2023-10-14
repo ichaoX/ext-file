@@ -18,15 +18,43 @@ const FSApi = {
         originPermission: {},
         originPrompt: {},
     },
+    _helperAppTips: true,
     async port() {
         if (!this._port) {
             this._port = browser.runtime.connectNative(this.application);
             util.addListener(this._port.onDisconnect, (port) => {
-                util.log('disconnect', port);
+                console.warn('disconnect', port);
+                if (this._helperAppTips) {
+                    this._helperAppTips = false;
+                    setTimeout(async () => {
+                        let url = browser.runtime.getURL('/view/doc.html');
+                        let fullUrl = `${url}#app`;
+                        try {
+                            let tabs = await browser.tabs.query({
+                                url,
+                            });
+                            if (tabs.length > 0) {
+                                if (!tabs.find(tab => tab.active)) {
+                                    await browser.tabs.update(tabs[0].id, {
+                                        active: true,
+                                        url: fullUrl,
+                                    });
+                                }
+                                return;
+                            }
+                        } catch (e) {
+                            console.warn(e);
+                        }
+                        browser.tabs.create({
+                            url: fullUrl,
+                        });
+                    }, 2000);
+                }
                 this.disconnect();
             });
             util.addListener(this._port.onMessage, (response) => {
                 util.log('response', response);
+                this._helperAppTips = false;
                 let id = response.id;
                 if (!this.resolves[id]) return;
                 if (this.parts[id]) {
