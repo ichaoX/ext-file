@@ -638,6 +638,9 @@ self.__fs_init = function (config = {}) {
         isNativeSupported,
         nativeApi: {},
         parseHandle: tool.parseHandle,
+        async getEnv(options = {}) {
+            return sendMessage('fs.getEnv', options);
+        },
     };
 
     if (typeof FS_EXPORT_API_NAME === "undefined" ? config.isExternal : !!FS_EXPORT_API_NAME) {

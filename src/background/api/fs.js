@@ -191,6 +191,24 @@ const FSApi = {
             }
             return response;
         },
+        async getEnv(message) {
+            let data = message.data || {};
+            let result = Object.assign({}, this.t.env);
+            if (data.app) {
+                if (this.t.connected) {
+                    result.app = await this.t.constants();
+                } else {
+                    try {
+                        result.app = await this.t.tryGetConstants();
+                    } catch (e) {
+                        console.warn(e);
+                        result.error = "" + e;
+                    }
+                }
+            }
+            result.connected = this.t.connected;
+            return util.wrapResponse(result);
+        },
         async getState() {
             return util.wrapResponse({
                 connected: this.t.connected,
@@ -262,6 +280,7 @@ const FSApi = {
         _PERM_MODE: {
             showDirectoryPicker: { returnPath: true },
             separator: {},
+            getEnv: {},
             queryPermission: { args: { path: null } },
             // XXX: path = dirname(readablePath)
             isdir: { args: { path: null } },
@@ -339,12 +358,6 @@ const FSApi = {
             let r = await this._action(message);
             if (pattern && pattern.returnPath) r = await this._encryptResponse(r);
             return r;
-        },
-        async getEnv(message) {
-            let data = message.data || {};
-            let env = this.t.env;
-            env.app = await this.t.constants(data.reload);
-            return util.wrapResponse(env);
         },
         async requestPermission(message, sender) {
             // TODO
@@ -558,7 +571,7 @@ const FSApi = {
     async constants(reload = false) {
         if (reload || !this._constants) {
             try {
-                this._constants = this.tryGetConstants();
+                this._constants = await this.tryGetConstants();
             } catch (e) {
                 console.warn(e);
                 this._constants = {
