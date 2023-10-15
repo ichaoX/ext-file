@@ -1,16 +1,16 @@
-self.__fs_init = function (config = {}) {
+self.__fs_init = function (fs_options = {}) {
 
     delete self.__fs_init;
 
     if (!(typeof FS_API_ENABLED === "undefined" || FS_API_ENABLED)) return;
 
-    const scope = config.scope || self;
+    const scope = fs_options.scope || self;
     const isWorker = !!scope.importScripts
     // XXX
     const isNativeSupported = !isWorker && !!scope.showOpenFilePicker;
 
-    const debug = config.debug || console.debug.bind(console);
-    const warn = config.warn || console.warn.bind(console);
+    const debug = fs_options.debug || console.debug.bind(console);
+    const warn = fs_options.warn || console.warn.bind(console);
     let debugHandle = async (handle, ...args) => {
         if (typeof FS_DEBUG_ENABLED === "undefined" || !FS_DEBUG_ENABLED) return;
         let path;
@@ -25,7 +25,7 @@ self.__fs_init = function (config = {}) {
                 path = handle;
                 break;
         }
-        if (config.isExternal && path) {
+        if (fs_options.isExternal && path) {
             try {
                 path = '…/' + await tool.basename(path);
             } catch (e) {
@@ -34,16 +34,16 @@ self.__fs_init = function (config = {}) {
         debug(`%c${path.replace(/%/g, '%%')}`, 'text-decoration: underline;', ...args);
     }
 
-    const getWrapped = config.getWrapped || (o => o);
-    const cloneIntoScope = config.cloneIntoScope || (o => o);
-    const exportIntoScope = config.exportIntoScope || ((name, o) => { scope[name] = o });
-    const setProto = config.setProto || ((o, proto) => {
+    const getWrapped = fs_options.getWrapped || (o => o);
+    const cloneIntoScope = fs_options.cloneIntoScope || (o => o);
+    const exportIntoScope = fs_options.exportIntoScope || ((name, o) => { scope[name] = o });
+    const setProto = fs_options.setProto || ((o, proto) => {
         if (proto) {
             o.__proto__ = proto;
         }
         return o;
     });
-    const sendMessage = config.sendMessage || (async (action, data) => {
+    const sendMessage = fs_options.sendMessage || (async (action, data) => {
         throw 'Not implemented'
     });
 
@@ -471,11 +471,11 @@ self.__fs_init = function (config = {}) {
         async normalPath(path) {
             if ("function" === typeof path) path = await path();
             path = path || '';
-            if (config.isExternal) return path;
+            if (fs_options.isExternal) return path;
             return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/, '/');
         },
         async diffPath(path, root) {
-            if (config.isExternal) return await this._resolvePath('diffPath', path, { root });
+            if (fs_options.isExternal) return await this._resolvePath('diffPath', path, { root });
             let result = null;
             let droot = root.replace(/\/?$/, '/');
             if (root === path) {
@@ -486,18 +486,18 @@ self.__fs_init = function (config = {}) {
             return result;
         },
         async basename(path) {
-            if (config.isExternal) return await this._resolvePath('basename', path);
+            if (fs_options.isExternal) return await this._resolvePath('basename', path);
             let separators = await this.separator(true);
             return path.replace(new RegExp(`^.*[${separators}]`), '');
         },
         async dirname(path) {
-            if (config.isExternal) return await this._resolvePath('dirname', path);
+            if (fs_options.isExternal) return await this._resolvePath('dirname', path);
             let separators = await this.separator(true);
             return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
         },
         async joinName(path, name) {
             await this.verifyName(name);
-            if (config.isExternal) return await this._resolvePath('joinName', path, { name });
+            if (fs_options.isExternal) return await this._resolvePath('joinName', path, { name });
             return path + '/' + name;
         },
         async verifyName(name) {
@@ -536,7 +536,7 @@ self.__fs_init = function (config = {}) {
                     let r = await sendMessage('fs.requestPermission', { path: root, mode });
                     if (r === null) {
                         let _path = root;
-                        if (config.isExternal) _path = '…/' + await tool.basename(_path);
+                        if (fs_options.isExternal) _path = '…/' + await tool.basename(_path);
                         let message = `<${scope.origin}> will be able to ${mode === FileSystemPermissionModeEnum.READ ? 'view' : 'edit'} (${mode}) files in '${_path}' during this session`;
                         r = confirm(message);
                         // XXX deny
@@ -580,7 +580,7 @@ self.__fs_init = function (config = {}) {
         },
 
         async cpath(path) {
-            if (config.isExternal) return path;
+            if (fs_options.isExternal) return path;
             let text = path, cache = true;
             if (!text) return text;
             if (text in encryptCache) return encryptCache[text];
@@ -592,7 +592,7 @@ self.__fs_init = function (config = {}) {
             return base64;
         },
         async parsePath(path) {
-            if (config.isExternal) return path;
+            if (fs_options.isExternal) return path;
             let base64 = path, cache = true;
             if (!base64) return base64;
             if (base64 in decryptCache) return decryptCache[base64];
@@ -643,7 +643,7 @@ self.__fs_init = function (config = {}) {
         },
     };
 
-    if (typeof FS_EXPORT_API_NAME === "undefined" ? config.isExternal : !!FS_EXPORT_API_NAME) {
+    if (typeof FS_EXPORT_API_NAME === "undefined" ? fs_options.isExternal : !!FS_EXPORT_API_NAME) {
         let shareApiName = typeof FS_EXPORT_API_NAME === 'string' ? FS_EXPORT_API_NAME : '__fs';
         getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }
@@ -696,7 +696,7 @@ self.__fs_init = function (config = {}) {
         let actionName = '_fsAction';
         let workerURL = null;
         exportIntoScope('Worker', function (url, ...options) {
-            let baseURI = (new scope.URL(url, config.baseURI || scope.document?.baseURI || scope.location?.href)).href;
+            let baseURI = (new scope.URL(url, fs_options.baseURI || scope.document?.baseURI || scope.location?.href)).href;
             if (!workerURL) {
                 if (isWorker) {
                     // XXX

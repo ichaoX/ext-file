@@ -114,7 +114,7 @@ if (self.__fs_init) {
         }
     }
 
-    let config = {
+    let fs_options = {
         scope,
         debug,
         getWrapped,
@@ -124,6 +124,6 @@ if (self.__fs_init) {
         sendMessage,
     };
 
-    self.__fs_init(config);
+    self.__fs_init(fs_options);
 
 }

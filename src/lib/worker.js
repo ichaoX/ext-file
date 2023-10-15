@@ -196,7 +196,7 @@ if (self.importScripts) {
     }
 
     if (self.__fs_init) {
-        let config = {
+        let fs_options = {
             scope,
             debug,
             warn,
@@ -205,7 +205,7 @@ if (self.importScripts) {
                 return __baseURI;
             },
         };
-        self.__fs_init(config);
+        self.__fs_init(fs_options);
     }
 
 }

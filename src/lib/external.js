@@ -1,8 +1,8 @@
 if (self.__fs_init && self.importScripts) {
     const __fs_init = self.__fs_init;
-    self.__fs_init = (config = {}, ...args) => {
-        Object.assign(config, { isExternal: true });
-        return __fs_init(config, ...args);
+    self.__fs_init = (fs_options = {}, ...args) => {
+        Object.assign(fs_options, { isExternal: true });
+        return __fs_init(fs_options, ...args);
     };
 } else if (self.__fs_init) {
 
@@ -51,13 +51,13 @@ if (self.__fs_init && self.importScripts) {
         }
     }
 
-    let config = {
+    let fs_options = {
         scope,
         debug,
         sendMessage,
         isExternal: true,
     };
 
-    self.__fs_init(config);
+    self.__fs_init(fs_options);
 
 }
