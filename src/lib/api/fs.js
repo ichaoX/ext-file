@@ -6,6 +6,8 @@ self.__fs_init = function (config = {}) {
 
     const scope = config.scope || self;
     const isWorker = !!scope.importScripts
+    // XXX
+    const isNativeSupported = !isWorker && !!scope.showOpenFilePicker;
 
     const debug = config.debug || console.debug.bind(console);
     const warn = config.warn || console.warn.bind(console);
@@ -370,13 +372,7 @@ self.__fs_init = function (config = {}) {
             name,
             // __proto__: _FileSystemHandlePrototype
         };
-        let proto = _FileSystemHandleProto;
-        if (kind === FileSystemHandleKindEnum.FILE) {
-            proto = _FileSystemFileHandleProto;
-        } else if (kind === FileSystemHandleKindEnum.DIRECTORY) {
-            proto = _FileSystemDirectoryHandleProto;
-        }
-        return setProto(cloneIntoScope(handle), proto);
+        return tool.parseHandle(cloneIntoScope(handle));
     };
 
     let getSubFileSystemHandle = async (meta, name, kind = null, options = {}) => {
@@ -626,13 +622,32 @@ self.__fs_init = function (config = {}) {
             };
         },
         createFileSystemHandle,
-        originalApi: {}
+        parseHandle(handle) {
+            if (!(handle && handle.kind && 'string' === typeof handle.name && handle._meta && 'function' != typeof handle.isSameEntry)) return handle;
+            let proto = _FileSystemHandleProto;
+            if (handle.kind === FileSystemHandleKindEnum.FILE) {
+                proto = _FileSystemFileHandleProto;
+            } else if (handle.kind === FileSystemHandleKindEnum.DIRECTORY) {
+                proto = _FileSystemDirectoryHandleProto;
+            }
+            return setProto(handle, proto);
+        },
     };
-    // scope.wrappedJSObject[shareApiScope] = cloneIntoScope(tool);
+
+    let shareApi = {
+        isNativeSupported,
+        nativeApi: {},
+        parseHandle: tool.parseHandle,
+    };
+
+    if (typeof FS_EXPORT_API_NAME === "undefined" ? config.isExternal : !!FS_EXPORT_API_NAME) {
+        let shareApiName = typeof FS_EXPORT_API_NAME === 'string' ? FS_EXPORT_API_NAME : '__fs';
+        getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
+    }
 
     for (let o of ['FileSystemHandle', 'FileSystemFileHandle', 'FileSystemDirectoryHandle', 'FileSystemWritableFileStream']) {
         if (scope[o]) {
-            tool.originalApi[o] = scope[o];
+            shareApi.nativeApi[o] = scope[o];
         }
         if (!scope[o] || typeof FS_OVERRIDE_ENABLED === "undefined" || FS_OVERRIDE_ENABLED) {
             exportIntoScope(o, scope.Object);
@@ -674,7 +689,7 @@ self.__fs_init = function (config = {}) {
 
     if (scope.Worker && (typeof FS_WORKER_ENABLED !== "undefined" && FS_WORKER_ENABLED)) {
         const Worker = scope.Worker;
-        tool.originalApi['Worker'] = Worker;
+        shareApi.nativeApi['Worker'] = Worker;
         let actionName = '_fsAction';
         let workerURL = null;
         exportIntoScope('Worker', function (url, ...options) {
@@ -692,12 +707,13 @@ self.__fs_init = function (config = {}) {
                             browser.runtime.getURL('/lib/worker.js'),
                         ];
                     let text = `//# sourceURL=${browser.runtime.getURL('/.page-worker.js')}
-let FS_DEBUG_ENABLED=${JSON.stringify(typeof FS_DEBUG_ENABLED === 'undefined' ? undefined : FS_DEBUG_ENABLED)};
-let FS_FILE_CACHE_EXPIRE=${JSON.stringify(typeof FS_FILE_CACHE_EXPIRE === 'undefined' ? undefined : FS_FILE_CACHE_EXPIRE)};
-let FS_FILE_SIZE_LIMIT=${JSON.stringify(typeof FS_FILE_SIZE_LIMIT === 'undefined' ? undefined : FS_FILE_SIZE_LIMIT)};
-let FS_OVERRIDE_ENABLED=${JSON.stringify(typeof FS_OVERRIDE_ENABLED === 'undefined' ? undefined : FS_OVERRIDE_ENABLED)};
-let FS_CLONE_ENABLED=${JSON.stringify(typeof FS_CLONE_ENABLED === 'undefined' ? undefined : FS_CLONE_ENABLED)};
-let FS_WORKER_ENABLED=${JSON.stringify(typeof FS_WORKER_ENABLED === 'undefined' ? undefined : FS_WORKER_ENABLED)};
+let FS_DEBUG_ENABLED=${typeof FS_DEBUG_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_DEBUG_ENABLED)};
+let FS_FILE_CACHE_EXPIRE=${typeof FS_FILE_CACHE_EXPIRE === 'undefined' ? 'undefined' : JSON.stringify(FS_FILE_CACHE_EXPIRE)};
+let FS_FILE_SIZE_LIMIT=${typeof FS_FILE_SIZE_LIMIT === 'undefined' ? 'undefined' : JSON.stringify(FS_FILE_SIZE_LIMIT)};
+let FS_OVERRIDE_ENABLED=${typeof FS_OVERRIDE_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_OVERRIDE_ENABLED)};
+let FS_CLONE_ENABLED=${typeof FS_CLONE_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_CLONE_ENABLED)};
+let FS_EXPORT_API_NAME=${typeof FS_EXPORT_API_NAME === 'undefined' ? 'undefined' : JSON.stringify(FS_EXPORT_API_NAME)};
+let FS_WORKER_ENABLED=${typeof FS_WORKER_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_WORKER_ENABLED)};
 let FS_WORKER_SCRIPTS=${JSON.stringify(workerScripts || [])};
 FS_WORKER_SCRIPTS.forEach(url=>importScripts(url));
 `;

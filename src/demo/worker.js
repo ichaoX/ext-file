@@ -1,3 +1,8 @@
+let parseHandle = (handle) => {
+    if (!self.__FS || !self.__FS.parseHandle) return handle;
+    return self.__FS.parseHandle(handle);
+};
+
 self.onmessage = async (message) => {
     console.debug('worker', message);
     self.lastMessage = message;
@@ -7,7 +12,7 @@ self.onmessage = async (message) => {
     let response = { action, request, data: null };
     switch (action) {
         case 'workerReadFile': {
-            let fileHandle = data;
+            let fileHandle = parseHandle(data);
             console.time("worker-readFile");
             try {
                 let file = await fileHandle.getFile();
@@ -19,7 +24,7 @@ self.onmessage = async (message) => {
             break;
         }
         case 'workerReadDir': {
-            let dirHandle = data;
+            let dirHandle = parseHandle(data);
             response.data = [];
             console.time("worker-readDir");
             try {
