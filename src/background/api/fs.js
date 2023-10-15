@@ -177,7 +177,7 @@ const FSApi = {
             let response = await this.request(message);
             if (response.code == 200 && response.data) {
                 let path = await this.t.normalPath(Array.isArray(response.data) ? response.data[0] : response.data);
-                if (['showOpenFilePicker', 'showSaveFilePicker'].includes(message.action)) path = await this.t.basename(path);
+                if (['showOpenFilePicker', 'showSaveFilePicker'].includes(message.action)) path = await this.t.dirname(path);
                 let config = await util.getSiteConfig(origin, 'startIn', {});
                 config[id] = {
                     path,
