@@ -62,7 +62,13 @@ const util = {
         return url.slice(url.indexOf(',') + 1);
     },
     async base64Decode(base64, type = '') {
-        return await this.url2Blob(`data:${type};base64,${base64}`);
+        // return await this.url2Blob(`data:${type};base64,${base64}`);
+        let bc = atob(base64);
+        let ba = new Uint8Array(bc.length);
+        for (let i = 0; i < bc.length; i++) {
+            ba[i] = bc.charCodeAt(i);
+        }
+        return new Blob([ba], { type });
     },
     _storageArea: browser.storage.sync ? 'sync' : 'local',
     _storagePrefix: '',
