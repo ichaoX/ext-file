@@ -253,39 +253,19 @@ self.addEventListener("beforeunload", (event) => {
                 break;
             }
             case 'content_script_js': {
-                let dataset = [
-                    {
-                        label: 'FS_API_ENABLED',
-                        documentation: 'Enable polyfill for File System API.',
-                    },
-                    {
-                        label: 'FS_OVERRIDE_ENABLED',
-                        documentation: 'Override native `FileSystem*` API to Object.',
-                    },
-                    {
-                        label: 'FS_CLONE_ENABLED',
-                        documentation: 'Preserve methods when cloning `FileSystem*Handle`.',
-                    },
-                    {
-                        label: 'FS_WORKER_ENABLED',
-                        documentation: 'Inject File System API into worker.',
-                    },
-                    {
-                        label: 'FS_FILE_SIZE_LIMIT',
-                        documentation: 'Limit file size (byte) when reading.'
-                    },
-                    {
-                        label: 'FS_FILE_CACHE_EXPIRE',
-                        documentation: 'Clear cache for files not accessed beyond timeout (second).',
-                    },
-                    {
-                        label: 'FS_DEBUG_ENABLED',
-                        documentation: 'Enable Debug mode.',
-                    },
-                ];
-                editor.util.languages.registerCompletionItems("javascript", dataset.map(e => Object.assign({
-                    kind: "Variable",
-                }, e)));
+                editor.util.languages.javascript.addExtraLib(`
+type FS_CONFIG = {
+    API_ENABLED?: boolean,
+    OVERRIDE_ENABLED?: boolean,
+    CLONE_ENABLED?: boolean,
+    WORKER_ENABLED?: boolean,
+    FILE_SIZE_LIMIT?: number,
+    FILE_CACHE_EXPIRE?: number,
+    EXPORSE_NAMESPACE?: string | boolean,
+    DEBUG_ENABLED?: boolean,
+};
+`,
+                    'local.d.ts', true);
                 break;
             }
         }

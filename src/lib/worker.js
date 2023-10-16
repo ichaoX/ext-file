@@ -10,8 +10,18 @@ if (self.importScripts) {
     let __debug = scope.console?.debug?.bind(scope.console);
     let __warn = scope.console?.warn?.bind(scope.console);
 
+    const getConfig = (name = null, def = undefined, type = null) => {
+        if ('undefined' !== typeof FS_CONFIG && FS_CONFIG) {
+            if (name === null) {
+                return FS_CONFIG;
+            } else if (FS_CONFIG.hasOwnProperty(name) && (!type || type === typeof FS_CONFIG[name])) {
+                return FS_CONFIG[name];
+            }
+        }
+        return def;
+    };
     let debug = (...args) => {
-        if (typeof FS_DEBUG_ENABLED === "undefined" || !FS_DEBUG_ENABLED) return;
+        if (!getConfig('DEBUG_ENABLED')) return;
         let i = args.length;
         while (args[--i] === undefined && i >= 0) args.pop();
         if (__debug) __debug(...args);

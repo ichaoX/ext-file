@@ -1,8 +1,18 @@
 if (self.__fs_init) {
 
     const scope = self;
+    const getConfig = (name = null, def = undefined, type = null) => {
+        if ('undefined' !== typeof FS_CONFIG && FS_CONFIG) {
+            if (name === null) {
+                return FS_CONFIG;
+            } else if (FS_CONFIG.hasOwnProperty(name) && (!type || type === typeof FS_CONFIG[name])) {
+                return FS_CONFIG[name];
+            }
+        }
+        return def;
+    };
     const debug = (...args) => {
-        if (typeof FS_DEBUG_ENABLED === "undefined" || !FS_DEBUG_ENABLED) return;
+        if (!getConfig('DEBUG_ENABLED')) return;
         let i = args.length;
         while (args[--i] === undefined && i >= 0) args.pop();
         console.debug(...args);
@@ -113,15 +123,22 @@ if (self.__fs_init) {
             throw e instanceof Error ? scope.Error(e.message) : cloneIntoScope(e);
         }
     }
+    let workerScripts = [
+        browser.runtime.getURL('/lib/enum.js'),
+        browser.runtime.getURL('/lib/api/fs.js'),
+        browser.runtime.getURL('/lib/worker.js'),
+    ];
 
     let fs_options = {
         scope,
+        getConfig,
         debug,
         getWrapped,
         cloneIntoScope,
         exportIntoScope,
         setProto,
         sendMessage,
+        workerScripts,
     };
 
     self.__fs_init(fs_options);

@@ -2,7 +2,17 @@ self.__fs_init = function (fs_options = {}) {
 
     delete self.__fs_init;
 
-    if (!(typeof FS_API_ENABLED === "undefined" || FS_API_ENABLED)) return;
+    const getConfig = (name = null, def = undefined, type = null) => {
+        if ('undefined' !== typeof FS_CONFIG && FS_CONFIG) {
+            if (name === null) {
+                return FS_CONFIG;
+            } else if (FS_CONFIG.hasOwnProperty(name) && (!type || type === typeof FS_CONFIG[name])) {
+                return FS_CONFIG[name];
+            }
+        }
+        return def;
+    };
+    if (!getConfig('API_ENABLED', true)) return;
 
     const scope = fs_options.scope || self;
     const isWorker = !!scope.importScripts
@@ -12,7 +22,7 @@ self.__fs_init = function (fs_options = {}) {
     const debug = fs_options.debug || console.debug.bind(console);
     const warn = fs_options.warn || console.warn.bind(console);
     let debugHandle = async (handle, ...args) => {
-        if (typeof FS_DEBUG_ENABLED === "undefined" || !FS_DEBUG_ENABLED) return;
+        if (!getConfig('DEBUG_ENABLED')) return;
         let path;
         switch (typeof handle) {
             case 'function':
@@ -64,7 +74,7 @@ self.__fs_init = function (fs_options = {}) {
     let decryptCache = {};
 
     let fileCache = {
-        timeout: 'undefined' === typeof FS_FILE_CACHE_EXPIRE ? null : FS_FILE_CACHE_EXPIRE,
+        timeout: getConfig('FILE_CACHE_EXPIRE', null),
         data: {},
         get(path) {
             let item = this.data[path];
@@ -276,7 +286,7 @@ self.__fs_init = function (fs_options = {}) {
             let path = await tool.meta(this).path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
             let stat = await sendMessage('fs.stat', { path });
-            if (typeof FS_FILE_SIZE_LIMIT === "number" && stat.size > FS_FILE_SIZE_LIMIT) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
+            if (stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
             let cache = fileCache.get(path);
             // XXX
             if (!(cache && cache.lastModified == stat.mtime && cache.size == stat.size)) {
@@ -643,8 +653,8 @@ self.__fs_init = function (fs_options = {}) {
         },
     };
 
-    if (typeof FS_EXPORT_API_NAME === "undefined" ? fs_options.isExternal : !!FS_EXPORT_API_NAME) {
-        let shareApiName = typeof FS_EXPORT_API_NAME === 'string' ? FS_EXPORT_API_NAME : '__fs';
+    if (!!getConfig('EXPORSE_NAMESPACE', fs_options.isExternal)) {
+        let shareApiName = getConfig('EXPORSE_NAMESPACE', '__fs', 'string');
         getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }
 
@@ -652,13 +662,13 @@ self.__fs_init = function (fs_options = {}) {
         if (scope[o]) {
             shareApi.nativeApi[o] = scope[o];
         }
-        if (!scope[o] || typeof FS_OVERRIDE_ENABLED === "undefined" || FS_OVERRIDE_ENABLED) {
+        if (!scope[o] || getConfig('OVERRIDE_ENABLED', true)) {
             exportIntoScope(o, scope.Object);
         }
     }
 
 
-    if (typeof FS_CLONE_ENABLED !== "undefined" && FS_CLONE_ENABLED) {
+    if (getConfig('CLONE_ENABLED')) {
 
         let defProp = (k, v, c = () => true) => {
             // debug(k, v);
@@ -690,11 +700,12 @@ self.__fs_init = function (fs_options = {}) {
 
     }
 
-    if (scope.Worker && (typeof FS_WORKER_ENABLED !== "undefined" && FS_WORKER_ENABLED)) {
+    if (scope.Worker && getConfig('WORKER_ENABLED')) {
         const Worker = scope.Worker;
         shareApi.nativeApi['Worker'] = Worker;
         let actionName = '_fsAction';
         let workerURL = null;
+        let currentScript = scope.document?.currentScript;
         exportIntoScope('Worker', function (url, ...options) {
             let baseURI = (new scope.URL(url, fs_options.baseURI || scope.document?.baseURI || scope.location?.href)).href;
             if (!workerURL) {
@@ -702,23 +713,11 @@ self.__fs_init = function (fs_options = {}) {
                     // XXX
                     workerURL = location.href;
                 } else {
-                    let workerScripts = typeof FS_WORKER_SCRIPTS !== "undefined"
-                        && Array.isArray(FS_WORKER_SCRIPTS)
-                        ? FS_WORKER_SCRIPTS : [
-                            browser.runtime.getURL('/lib/enum.js'),
-                            browser.runtime.getURL('/lib/api/fs.js'),
-                            browser.runtime.getURL('/lib/worker.js'),
-                        ];
-                    let text = `//# sourceURL=${browser.runtime.getURL('/.page-worker.js')}
-let FS_DEBUG_ENABLED=${typeof FS_DEBUG_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_DEBUG_ENABLED)};
-let FS_FILE_CACHE_EXPIRE=${typeof FS_FILE_CACHE_EXPIRE === 'undefined' ? 'undefined' : JSON.stringify(FS_FILE_CACHE_EXPIRE)};
-let FS_FILE_SIZE_LIMIT=${typeof FS_FILE_SIZE_LIMIT === 'undefined' ? 'undefined' : JSON.stringify(FS_FILE_SIZE_LIMIT)};
-let FS_OVERRIDE_ENABLED=${typeof FS_OVERRIDE_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_OVERRIDE_ENABLED)};
-let FS_CLONE_ENABLED=${typeof FS_CLONE_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_CLONE_ENABLED)};
-let FS_EXPORT_API_NAME=${typeof FS_EXPORT_API_NAME === 'undefined' ? 'undefined' : JSON.stringify(FS_EXPORT_API_NAME)};
-let FS_WORKER_ENABLED=${typeof FS_WORKER_ENABLED === 'undefined' ? 'undefined' : JSON.stringify(FS_WORKER_ENABLED)};
-let FS_WORKER_SCRIPTS=${JSON.stringify(workerScripts || [])};
-FS_WORKER_SCRIPTS.forEach(url=>importScripts(url));
+                    let workerScripts = getConfig('WORKER_SCRIPTS', fs_options.workerScripts || [currentScript?.src], 'object');
+                    let text = `
+//# sourceURL="/_fs_page_worker.js"
+let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
+(${JSON.stringify(workerScripts || [])}).forEach(url => importScripts(url));
 `;
                     workerURL = scope.URL.createObjectURL(new scope.Blob([text], { type: 'text/javascript' }));
                 }
@@ -812,7 +811,7 @@ FS_WORKER_SCRIPTS.forEach(url=>importScripts(url));
             })));
             return worker;
         });
-        if (typeof FS_DEBUG_ENABLED !== "undefined" && FS_DEBUG_ENABLED) {
+        if (getConfig('DEBUG_ENABLED')) {
             scope.addEventListener('securitypolicyviolation', (event) => {
                 warn(event);
             });

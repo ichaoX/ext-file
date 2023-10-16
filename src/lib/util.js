@@ -78,11 +78,17 @@ const util = {
             // excludeGlobs: [],
             allFrames: true,
             js: [{
-                code: `let FS_API_ENABLED = !!self.isSecureContext;
-let FS_CLONE_ENABLED = ['vscode.dev'].includes(location.hostname);
-let FS_WORKER_ENABLED = ['vscode.dev'].includes(location.hostname);
-let FS_FILE_SIZE_LIMIT = 30 * 1024 ** 2;
-let FS_FILE_CACHE_EXPIRE = 5 * 60;`,
+                code: `/**
+ * @type {FS_CONFIG}
+ */
+let FS_CONFIG = {
+    API_ENABLED: !!self.isSecureContext,
+    CLONE_ENABLED: ['vscode.dev'].includes(location.hostname),
+    WORKER_ENABLED: ['vscode.dev'].includes(location.hostname),
+    FILE_SIZE_LIMIT: 30 * 1024 ** 2,
+    FILE_CACHE_EXPIRE: 5 * 60,
+};
+`,
             }],
         },
     },

@@ -9,14 +9,24 @@ if (self.__fs_init && self.importScripts) {
     const extensionId = "file@example.com";
 
     const scope = self;
+    const getConfig = (name = null, def = undefined, type = null) => {
+        if ('undefined' !== typeof FS_CONFIG && FS_CONFIG) {
+            if (name === null) {
+                return FS_CONFIG;
+            } else if (FS_CONFIG.hasOwnProperty(name) && (!type || type === typeof FS_CONFIG[name])) {
+                return FS_CONFIG[name];
+            }
+        }
+        return def;
+    };
     const debug = (...args) => {
-        if (typeof FS_DEBUG_ENABLED === "undefined" || !FS_DEBUG_ENABLED) return;
+        if (!getConfig('DEBUG_ENABLED')) return;
         let i = args.length;
         while (args[--i] === undefined && i >= 0) args.pop();
         console.debug(...args);
     };
 
-    let extMessage = typeof FS_EXT_MESSAGE !== "undefined" ? FS_EXT_MESSAGE : 'Using the "File System Access API" requires the "File System Access" extension (https://addons.mozilla.org/en-US/firefox/addon/file-system-access/) and helper app to be installed.';
+    let extMessage = getConfig('EXTENSION_TIP', 'Using the "File System Access API" requires the "File System Access" extension (https://addons.mozilla.org/en-US/firefox/addon/file-system-access/) and helper app to be installed.');
 
     let sendMessage = async (action, data) => {
         try {
@@ -53,6 +63,7 @@ if (self.__fs_init && self.importScripts) {
 
     let fs_options = {
         scope,
+        getConfig,
         debug,
         sendMessage,
         isExternal: true,
