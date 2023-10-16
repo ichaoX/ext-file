@@ -87,7 +87,14 @@
         }
 
         .warn {
-            color: #aa4643;
+            color: darkred;
+        }
+
+        .experimental::after {
+            content: "(Experimental)";
+            font-size: 0.8rem;
+            color: darkred;
+            margin-left: 0.5rem;
         }
     </style>
 </head>
@@ -162,87 +169,108 @@
             If the state is <em>Running</em>, the native application is running normally.
         </li>
         <li>
-            If the state is otherwise, make sure that the native application and related dependencies have been installed correctly, and try restarting your browser.
+            If the state is otherwise, make sure that the native application and related dependencies have been
+            installed correctly, and try restarting your browser.
         </li>
     </ul>
     <h2 id="content-script"><a href="#content-script">Content Script</a></h2>
     <h3 id="match-patterns"><a href="#match-patterns">Match patterns</a></h3>
     <p>
-        This option mainly controls in which pages the extension is enabled, and the complete options can be viewed
-        in the <a
-            href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/contentScripts/register#parameters"
-            target="_blank"><code>contentScriptOptions</code></a>.
+        This configuration item instructs the browser to enable the extension only on web pages whose URL matches a
+        given pattern.
     </p>
     <p>
-        When setting in the <a href="./options.html" target="options">options page</a>, it must conform to the <a
+        See the <a
+            href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/contentScripts/register#parameters"
+            target="_blank"><code>contentScriptOptions</code></a> for details of all keys, which must conform to <a
             href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON#javascript_and_json_differences"
-            target="_blank">JSON</a> syntax.
+            target="_blank">JSON</a> syntax when filled in on the <a href="./options.html" target="options">options
+            page</a>.
     </p>
     <h3 id="env-vars"><a href="#env-vars">Configuration parameters</a></h3>
     <p>
-        This option mainly controls the specific configuration of each page. When configuring the <a
-            href="./options.html" target="options">option page</a>, it should be a <a
-            href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#declarations"
-            target="_blank">declaration variable statement</a>.
+        This configuration item instructs the extension to enable specific features on matching web pages.
     </p>
     <p>
-        Features marked as <em class="warn">Experimental</em> may have side effects and should only be enabled on
-        necessary pages.
+        Define the <code>FS_CONFIG</code> object with a <a
+            href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#declarations"
+            target="_blank">declaration variable statement</a>,
+        which must conform to <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
+            target="_blank">JavaScript</a> syntax when filled in on the <a href="./options.html"
+            target="options">options page</a>.
     </p>
     <table>
         <caption>
-            All Available Configuration Parameters
+            Available keys for <code>FS_CONFIG</code> object
         </caption>
         <thead>
             <tr>
-                <th>Name</th>
+                <th>Key Name</th>
+                <th>Type</th>
                 <th>Unit</th>
                 <th>Description</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>FS_API_ENABLED</td>
+                <td>API_ENABLED</td>
+                <td><code>boolean</code></td>
                 <td>--</td>
-                <td>Enable polyfill for File System API.</td>
+                <td>Enable polyfill for <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
+                        target="_blank">File System API</a>.</td>
             </tr>
             <tr>
-                <td>FS_OVERRIDE_ENABLED</td>
+                <td>OVERRIDE_ENABLED</td>
+                <td><code>boolean</code></td>
                 <td>--</td>
-                <td>Override native <code>FileSystem*</code> API to Object.</td>
+                <td>Override native <code>FileSystem*</code> API to <code>Object</code>.</td>
             </tr>
             <tr>
-                <td>FS_CLONE_ENABLED</td>
+                <td class="experimental">CLONE_ENABLED</td>
+                <td><code>boolean</code></td>
                 <td>--</td>
-                <td><span class="warn help" title="Should only be enabled when necessary.">(Experimental)</span>
-                    Preserve methods when cloning
-                    <code>FileSystem*Handle</code>.
+                <td>
+                    Preserve methods when cloning <code>FileSystem*Handle</code>.
                 </td>
             </tr>
             <tr>
-                <td>FS_WORKER_ENABLED</td>
+                <td class="experimental">WORKER_ENABLED</td>
+                <td><code>boolean</code></td>
                 <td>--</td>
-                <td><span class="warn help" title="Should only be enabled when necessary.">(Experimental)</span>
-                    Inject File System API into
-                    worker.</td>
+                <td>
+                    Inject File System API into <a href="https://developer.mozilla.org/en-US/docs/Web/API/Worker"
+                        target="_blank">worker</a>.</td>
             </tr>
             <tr>
-                <td>FS_FILE_SIZE_LIMIT</td>
+                <td>FILE_SIZE_LIMIT</td>
+                <td><code>number</code></td>
                 <td>byte</td>
                 <td>Limit file size when reading.</td>
             </tr>
             <tr>
-                <td>FS_FILE_CACHE_EXPIRE</td>
+                <td>FILE_CACHE_EXPIRE</td>
+                <td><code>number</code></td>
                 <td>second</td>
                 <td>Clear cache for files not accessed beyond timeout.</td>
             </tr>
             <tr>
-                <td>FS_DEBUG_ENABLED</td>
+                <td>EXPORSE_NAMESPACE</td>
+                <td><code>string | boolean</code></td>
+                <td>--</td>
+                <td>Exposing utility object to the global scope.</td>
+            </tr>
+            <tr>
+                <td>DEBUG_ENABLED</td>
+                <td><code>boolean</code></td>
                 <td>--</td>
                 <td>Enable Debug mode.</td>
             </tr>
         </tbody>
     </table>
+    <p>
+        Features marked as <em class="warn">Experimental</em> may have side effects and should only be enabled on
+        necessary web pages.
+    </p>
 </body>
 
 </html>
