@@ -331,10 +331,19 @@ self.__fs_init = function (fs_options = {}) {
                 let i = await gen.next();
                 if (i.done) break;
                 let name = i.value;
-                let handle = await getSubFileSystemHandle(meta, name);
-                let result = cloneIntoScope([handle.name]);
-                result.push(handle);
-                yield result;
+                try {
+                    let handle = await getSubFileSystemHandle(meta, name);
+                    let result = cloneIntoScope([handle.name]);
+                    result.push(handle);
+                    yield result;
+                } catch (e) {
+                    // XXX: broken symbolic link
+                    if (e instanceof DOMException && e.name === NotFoundError.name) {
+                        warn(name, e);
+                        continue;
+                    }
+                    throw e;
+                }
             }
         },
         async getDirectoryHandle(name, options) {
