@@ -7,13 +7,25 @@
     <link rel="shortcut icon" href="/icon.png">
     <title>File System Access Options</title>
     <style>
+        form {
+            max-width: 800px;
+        }
+
         .section {
-            max-width: 600px;
-            margin: 1rem;
+            width: calc(100% - 1rem);
+            margin: 0.5rem 0 0.5rem 0.5rem;
+            padding-left: 0.5rem;
+            border-left: 1px solid #eee;
+            box-sizing: border-box;
+        }
+
+        .section .section {
+            margin-bottom: 0.5rem;
         }
 
         summary {
-            margin: -0.5rem -0.5rem 0;
+            margin: 0 -0.75rem 0;
+            cursor: pointer;
         }
 
         label {
@@ -68,6 +80,14 @@
             color: red;
         }
 
+        .btn-group {
+            margin: 0 1rem 1rem;
+        }
+
+        .section .btn-group {
+            margin-left: 0rem;
+        }
+
         button+button {
             margin-left: 1rem;
         }
@@ -75,6 +95,7 @@
         .ext-code-editor {
             border: 1px solid #ccc;
             resize: both !important;
+            min-width: 100%;
         }
     </style>
     <script src="/lib/util.js"></script>
@@ -84,35 +105,57 @@
 
 <body>
     <form>
-        <details open class="section content-script-options">
+        <details open class="section app-options">
+            <summary>Helper App</summary>
+            <div class="state">
+                <label><span class="label">State
+                    </span><span data-state="text" data-status="">Unknown</span>
+                    <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
+                </label>
+                <label><span class="label">Version</span><span data-state="version"
+                        data-status="">Unknown</span></label>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="recheck">Recheck</button>
+                <button type="button" class="stop">Stop</button>
+            </div>
+        </details>
+        <details class="section ui">
+            <summary>Accessibility</summary>
+            <label>
+                Request permissions via a separate tab:
+                <select data-setting="prompt_tab">
+                    <option value="auto">auto</option>
+                    <option value="always">always</option>
+                    <option value="never">never (unsafe)</option>
+                </select>
+            </label>
+            <label>
+                <input type="checkbox" data-setting="code_editor" />
+                Enable Code Editor (additional <a href="https://addons.mozilla.org/en-US/firefox/addon/code-editor/"
+                    target="_blank">extension</a>
+                required)
+            </label>
+        </details>
+        <details class="section content-script-options">
             <summary>Content Script</summary>
             <label> * Match patterns
                 <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>
                 <br />
-                <textarea class="options editor" placeholder='{ "matches": ["*://*.example.com/*"] }'
+                <textarea class="editor" placeholder='{ "matches": ["*://*.example.com/*"] }'
                     data-setting="content_script_match" data-language="json"></textarea>
             </label>
             <label> Configuration parameters
                 <span class="help">(<a href="./doc.html#env-vars" target="doc">?</a>)</span>
                 <br />
-                <textarea class="env editor" placeholder="let FS_CONFIG = { API_ENABLED: self.isSecureContext };"
-                    data-setting="content_script_js" data-language="javascript"></textarea>
+                <textarea class="editor" placeholder="let FS_CONFIG = { API_ENABLED: self.isSecureContext };"
+                    data-setting="content_script_match.js" data-language="javascript"></textarea>
             </label>
+        </details>
+        <div class="btn-group">
             <button type="button" class="save">Save</button>
-            <button type="button" class="reset right">Reset to default</button>
-        </details>
-        <details open class="section app-options">
-            <summary>Helper App
-                <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
-            </summary>
-            <div class="state">
-                <label><span class="label">State</span><span data-state="text" data-status="">Unknown</span></label>
-                <label><span class="label">Version</span><span data-state="version"
-                        data-status="">Unknown</span></label>
-            </div>
-            <button type="button" class="recheck">Recheck</button>
-            <button type="button" class="stop hide">Stop</button>
-        </details>
+            <button type="button" class="reset">Reset to default</button>
+        </div>
     </form>
     <script src="./options.js"></script>
 </body>

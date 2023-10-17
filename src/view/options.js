@@ -2,6 +2,10 @@ self.name = "options";
 
 let $form = document.querySelector("form");
 let $save = $form.querySelector(".save");
+let contentScriptKey = 'content_script_match';
+let $contentScriptSection = document.querySelector(".content-script-options");
+let $contentScriptOptions = $contentScriptSection.querySelector(`[data-setting="content_script_match"]`);
+let $contentScriptEnv = $contentScriptSection.querySelector(`[data-setting="content_script_match.js"]`);
 
 $form.addEventListener("change", (event) => {
     event.preventDefault();
@@ -15,55 +19,79 @@ self.addEventListener("beforeunload", (event) => {
     }
 });
 
-(async () => {
-    let section = document.querySelector(".content-script-options");
-    let $options = section.querySelector("textarea.options");
-    let $env = section.querySelector("textarea.env");
-    let key = "content_script_match";
-    let setForm = (options) => {
-        options = JSON.parse(JSON.stringify(options));
-        let env = '';
-        if (Array.isArray(options.js)) {
-            env = options.js.shift()?.code;
-            if (!options.js.length) delete options.js;
-        }
-        $env.value = env || '';
-        $env.dispatchEvent(new Event('change', { bubbles: true }));
-        $options.value = JSON.stringify(options, null, " ");
-        $options.dispatchEvent(new Event('change', { bubbles: true }));
+$form.onkeydown = (event) => {
+    if (event.ctrlKey && event.key == "s") {
+        $save.click();
+        event.preventDefault();
     }
-    $save.onclick = async function (event) {
-        try {
-            let options = JSON.parse($options.value);
-            if (!Array.isArray(options.js)) options.js = [];
-            if ("" === $env.value.trim() && !options.js.length) {
-                delete options.js;
-            } else {
-                options.js.unshift({ code: $env.value });
+}
+
+$save.onclick = async (event) => {
+    try {
+        await util.sendMessage("fs.updateOptions", getFormData());
+        $save.disabled = true;
+        // alert('Saved');
+    } catch (e) {
+        console.error(e);
+        alert(e.message);
+        // throw e;
+    }
+};
+
+$form.querySelector(".reset").onclick = async function (event) {
+    setFormData(util._defaultConfig)
+}
+
+let setFormData = (o) => {
+    console.debug(o)
+    for (let k in o) {
+        switch (k) {
+            case contentScriptKey: {
+                let options = JSON.parse(JSON.stringify(o[k])) || {};
+                let env = '';
+                if (Array.isArray(options.js)) {
+                    env = options.js.shift()?.code;
+                    if (!options.js.length) delete options.js;
+                }
+                $contentScriptEnv.value = env || '';
+                $contentScriptEnv.dispatchEvent(new Event('change', { bubbles: true }));
+                $contentScriptOptions.value = JSON.stringify(options, null, "    ");
+                $contentScriptOptions.dispatchEvent(new Event('change', { bubbles: true }));
+                break;
             }
-            await util.sendMessage("fs.contentScriptsRegister", options);
-            await util.setSetting(key, options);
-            this.disabled = true;
-            // alert('Saved');
-        } catch (e) {
-            console.error(e);
-            alert(e.message);
-            // throw e;
+            default: {
+                let $n = $form.querySelector(`[data-setting="${k}"]`);
+                if (!$n) break;
+                let v = o[k];
+                if ($n.type == "checkbox") {
+                    $n.checked = !!v;
+                } else {
+                    $n.value = v;
+                    $n.dispatchEvent(new Event("change", { bubbles: true }));
+                }
+            }
         }
     }
-    section.onkeydown = (event) => {
-        if (event.ctrlKey && event.key == "s") {
-            $save.click();
-            event.preventDefault();
-        }
+};
+
+let getFormData = () => {
+    let settings = {};
+    [...$form.querySelectorAll("[data-setting]")].map((n) => {
+        let key = n.getAttribute("data-setting");
+        if (key.includes('.')) return;
+        let v = n.type == "checkbox" ? n.checked : n.value;
+        settings[key] = v;
+    });
+    let options = JSON.parse($contentScriptOptions.value);
+    if (!Array.isArray(options.js)) options.js = [];
+    if ("" === $contentScriptEnv.value.trim() && !options.js.length) {
+        delete options.js;
+    } else {
+        options.js.unshift({ code: $contentScriptEnv.value });
     }
-    section.querySelector(".reset").onclick = async function (event) {
-        setForm(util._defaultConfig[key])
-    }
-    let options = await util.getSetting(key);
-    setForm(options)
-    $save.disabled = true;
-})();
+    settings[contentScriptKey] = options;
+    return settings;
+};
 
 (async () => {
     let $section = document.querySelector(".app-options");
@@ -103,7 +131,7 @@ self.addEventListener("beforeunload", (event) => {
             }
         }
         console.log(state);
-        $section.querySelector(".stop").classList[state.connected ? 'remove' : 'add']('hide');
+        $section.querySelector(".stop").disabled = !state.connected;
         [].forEach.call($items, $n => {
             let key = $n.getAttribute('data-state');
             $n.setAttribute('data-status', !state.error && state[key] ? 'ok' : (state.error ? 'error' : ''));
@@ -126,6 +154,18 @@ self.addEventListener("beforeunload", (event) => {
 })();
 
 (async () => {
+    let settings = {};
+
+    await Promise.all([...$form.querySelectorAll("[data-setting]")].map(async (n) => {
+        let key = n.getAttribute("data-setting");
+        if (key.includes('.')) return;
+        settings[key] = await util.getSetting(key);
+    }));
+
+    setFormData(settings);
+    $save.disabled = true;
+
+    if (!settings.code_editor) return;
 
     let createCodeEditor = ($n) => {
         let key = $n.getAttribute('data-setting');
@@ -252,7 +292,7 @@ self.addEventListener("beforeunload", (event) => {
                 });
                 break;
             }
-            case 'content_script_js': {
+            case 'content_script_match.js': {
                 editor.util.languages.javascript.addExtraLib(`
 type FS_CONFIG = {
     API_ENABLED?: boolean,
