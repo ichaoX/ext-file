@@ -66,6 +66,7 @@ self.__fs_init = function (fs_options = {}) {
     const InvalidModificationError = new DOMException('The object can not be modified in this way.', 'InvalidModificationError');
     const TypeMismatchError = new DOMException('The path supplied exists, but was not an entry of requested type.', 'TypeMismatchError');
     const AbortError = new DOMException('The user aborted a request.', 'AbortError');
+    const SecurityError = new DOMException('Must be handling a user gesture to show a file picker.', 'SecurityError');
 
     // debug('fs start');
 
@@ -426,6 +427,8 @@ self.__fs_init = function (fs_options = {}) {
         if (!scope.showOpenFilePicker) {
             exportIntoScope('showOpenFilePicker', async function (options) {
                 debug('showOpenFilePicker', options);
+                // XXX
+                if (document.visibilityState === 'hidden') throw SecurityError;
                 let paths = await sendMessage('fs.showOpenFilePicker', options);
                 if (!paths) throw AbortError;
                 let result = cloneIntoScope([]);
@@ -441,6 +444,8 @@ self.__fs_init = function (fs_options = {}) {
         if (!scope.showDirectoryPicker) {
             exportIntoScope('showDirectoryPicker', async function (options) {
                 debug('showDirectoryPicker', options);
+                // XXX
+                if (document.visibilityState === 'hidden') throw SecurityError;
                 options = options || {};
                 let path = await sendMessage('fs.showDirectoryPicker', options);
                 if (!path) throw AbortError;
@@ -453,6 +458,8 @@ self.__fs_init = function (fs_options = {}) {
         if (!scope.showSaveFilePicker) {
             exportIntoScope('showSaveFilePicker', async function (options) {
                 debug('showSaveFilePicker', options);
+                // XXX
+                if (document.visibilityState === 'hidden') throw SecurityError;
                 options = options || {};
                 let path = await sendMessage('fs.showSaveFilePicker', options);
                 if (!path) throw AbortError;
