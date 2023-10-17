@@ -1,6 +1,6 @@
 # Firefox File System Access Extension
 
-This extension brings the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) to Firefox that helps web apps such as [vscode.dev](https://vscode.dev) read and write local files and folders.
+This extension brings the [File System Access API](https://wicg.github.io/file-system-access/) to Firefox that helps web apps such as [vscode.dev](https://vscode.dev) read and write local files and folders.
 
 ![Access Control](.github/images/access_control.png)
 
@@ -8,7 +8,9 @@ This extension brings the [File System Access API](https://developer.mozilla.org
 
 * Implemented `showOpenFilePicker()`, `showDirectoryPicker()`, `showSaveFilePicker()` and related interfaces.
 
-* On the options page you can customize the page matching and configure the API features.
+* Set to enable specific File System Access features on matching web pages.
+
+* Provides File System Access API for other compatible WebExtensions.
 
 ## Notes
 

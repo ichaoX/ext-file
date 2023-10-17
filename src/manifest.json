@@ -1,5 +1,5 @@
 {
-    "description": "File System Access API that enable web apps to interact with files on the local device.",
+    "description": "The File System Access API allows web apps to interact with files on the local device.",
     "manifest_version": 2,
     "name": "File System Access",
     "icons": {
