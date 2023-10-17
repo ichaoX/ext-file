@@ -482,7 +482,7 @@ self.__fs_init = function (fs_options = {}) {
             if ("function" === typeof path) path = await path();
             path = path || '';
             if (fs_options.isExternal) return path;
-            return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/, '/');
+            return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/g, '/').replace(/(?<=.)\/$/, '');
         },
         async diffPath(path, root) {
             if (fs_options.isExternal) return await this._resolvePath('diffPath', path, { root });

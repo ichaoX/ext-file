@@ -121,6 +121,14 @@ const FSApi = {
             }
             return await this.request(message);
         },
+        async scandir(message) {
+            let data = message.data;
+            if (data.path) {
+                // FIX: dir C:*.*
+                data.path = data.path.replace(/(\/)?$/, '/');
+            }
+            return await this.request(message);
+        },
         async showDirectoryPicker(...args) {
             return await this.picker(...args);
         },
@@ -591,7 +599,7 @@ const FSApi = {
     },
     async normalPath(path) {
         path = path || '';
-        return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/, '/');
+        return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/g, '/').replace(/(?<=.)\/$/, '');
     },
     async basename(path) {
         let separators = await this.separator(true);
