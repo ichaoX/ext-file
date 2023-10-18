@@ -355,11 +355,21 @@ const FSApi = {
             }
             return util.wrapResponse(result);
         },
-        async resolvePrompt(message) {
+        async resolvePrompt(message, sender) {
             let data = message.data || {};
             let p = this.t.data.originPrompt[data.origin];
             if (!(p && data.id === p.id)) return util.wrapResponse('Expired', 410);
-            return util.wrapResponse(await p.resolves[data.key]());
+            let autoClose = await p.resolves[data.key]();
+            if (autoClose && sender && sender.frameId == 0 && sender.url.startsWith(browser.runtime.getURL('/')) && sender.tab) {
+                setTimeout(async () => {
+                    try {
+                        await browser.tabs.remove([sender.tab.id]);
+                    } catch (e) {
+                        util.log(e);
+                    }
+                }, 50);
+            }
+            return util.wrapResponse(autoClose);
         },
         async updateOptions(message) {
             let settings = message.data;
