@@ -15,3 +15,5 @@ This extension brings the [File System Access API](https://wicg.github.io/file-s
 ## Notes
 
 * The local file operations required by this extension cannot be performed in the browser, and a [helper app](app) needs to be installed to assist in the related work.
+
+* The optional Code Editor feature is provided by the [Code Editor](https://addons.mozilla.org/firefox/addon/code-editor/) extension.
