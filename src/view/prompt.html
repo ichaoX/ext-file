@@ -32,9 +32,10 @@
         }
 
         .container {
-            width: 600px;
+            min-width: 13em;
+            max-width: 52em;
             margin: 5em auto;
-            padding: 2em;
+            padding: 38px;
             /* background-color: #fdfdff;
             box-shadow: 2px 3px 7px 2px rgba(0, 0, 0, 0.02); */
             border-radius: 0.5em;
@@ -48,10 +49,6 @@
             margin: 0;
             padding-bottom: 0.4em;
             margin-bottom: .5em;
-        }
-
-        b[data-text]{
-            white-space: nowrap;
         }
 
         [data-text="origin"]::before {
@@ -103,6 +100,13 @@
             border: none;
         }
 
+        @media only screen and (max-width: 480px) {
+            .button-container>button {
+                width: 100%;
+                margin: 0.66em 0 0;
+            }
+        }
+
         .button-container>button:first-child {
             margin-inline-start: 0;
         }
@@ -136,8 +140,9 @@
                 Let site <span data-text="perm-mode">ACCESS</span> files?
             </h1>
             <p>
-                <b data-text="origin" title="Origin">Origin</b> will be able to <b data-text="perm-mode-detail">ACCESS</b> files in <b
-                    data-text="path">PATH</b> during this session<span data-text="external" data-value="">, as requested
+                <b data-text="origin" title="Origin">Origin</b> will be able to <b
+                    data-text="perm-mode-detail">ACCESS</b> files in <b data-text="path">PATH</b> during this
+                session<span data-text="external" data-value="">, as requested
                     by the browser extension with ID <b data-text="sender-id"></b></span>.
             </p>
             <p><a href="" target="_blank" data-action="viewTab">View Source Tab (<span
