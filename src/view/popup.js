@@ -3,8 +3,17 @@ let render = async () => {
     let infos = await util.sendMessage('tab.queryPermissions', { tabId: tabInfo.id });
     if (!Object.values(infos).find(info => !!info.granted)) self.close();
     document.body.innerHTML = '';
+    let splitPath = (path) => {
+        let level = [];
+        let match = path.match(/^(\/\/[^\/]*|[a-z]:|\/)/i);
+        let prefix = match && match[1] ? match[1] : '';
+        if (prefix !== "") level.push(prefix);
+        path = path.slice(prefix.length);
+        if (path !== "") level.push(...path.split(new RegExp(`(?=[/])`)));
+        return level;
+    };
     let isMinor = (path, list, inList = false) => {
-        let paths = path.split(new RegExp(`(?<=^/)|(?=[/])`)).reduce((p, a, i) => (p.push((p[i - 1] || "") + a), p), []);
+        let paths = splitPath(path).reduce((p, a, i) => (p.push((p[i - 1] || "") + a), p), []);
         for (let i of list) {
             if (inList && i === path) continue;
             if (paths.includes(i)) {

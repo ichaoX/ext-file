@@ -498,7 +498,11 @@ self.__fs_init = function (fs_options = {}) {
             if ("function" === typeof path) path = await path();
             path = path || '';
             if (fs_options.isExternal) return path;
-            return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/g, '/').replace(/(?<=.)\/$/, '');
+            if ((await this.separator()) == '\\') path = path.replace(/\\/g, '/');
+            let match = path.match(/^(\/\/[^\/]*|[a-z]:|\/)/i);
+            let prefix = match && match[1] ? match[1] : '';
+            path = path.slice(prefix.length);
+            return prefix + path.replace(/\/{2,}/g, '/').replace(/\/$/, '');
         },
         async diffPath(path, root) {
             if (fs_options.isExternal) return await this._resolvePath('diffPath', path, { root });
@@ -524,7 +528,7 @@ self.__fs_init = function (fs_options = {}) {
         async joinName(path, name) {
             await this.verifyName(name);
             if (fs_options.isExternal) return await this._resolvePath('joinName', path, { name });
-            return path + '/' + name;
+            return path.replace(/\/?$/, '/') + name;
         },
         async verifyName(name) {
             if (typeof name !== 'string' || ['', '.', '..'].includes(name) || (new RegExp(`[${await this.separator(true)}]`)).test(name)) throw new TypeError(`Name is not allowed.`);

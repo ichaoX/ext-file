@@ -536,7 +536,7 @@ const FSApi = {
                 case 'joinName': {
                     let { path, name } = data;
                     await this.t.verifyName(name);
-                    result = path + '/' + name;
+                    result = path.replace(/\/?$/, '/') + name;
                     isPath = true;
                     break;
                 }
@@ -629,7 +629,11 @@ const FSApi = {
     },
     async normalPath(path) {
         path = path || '';
-        return ((await this.separator()) == '\\' ? path.replace(/\\/g, '/') : path).replace(/\/{2,}/g, '/').replace(/(?<=.)\/$/, '');
+        if ((await this.separator()) == '\\') path = path.replace(/\\/g, '/');
+        let match = path.match(/^(\/\/[^\/]*|[a-z]:|\/)/i);
+        let prefix = match && match[1] ? match[1] : '';
+        path = path.slice(prefix.length);
+        return prefix + path.replace(/\/{2,}/g, '/').replace(/\/$/, '');
     },
     async basename(path) {
         let separators = await this.separator(true);
@@ -671,6 +675,22 @@ const FSApi = {
             return FileSystemPermissionModeEnum.READ;
         }
     },
+    /**
+     * C:,/ab,/cd,/ef
+     * /,ab,/cd,/ef
+     * //ab,/cd,/ef
+     * @param {string} path
+     * @returns string[]
+     */
+    splitPath(path) {
+        let level = [];
+        let match = path.match(/^(\/\/[^\/]*|[a-z]:|\/)/i);
+        let prefix = match && match[1] ? match[1] : '';
+        if (prefix !== "") level.push(prefix);
+        path = path.slice(prefix.length);
+        if (path !== "") level.push(...path.split(new RegExp(`(?=[/])`)));
+        return level;
+    },
     async queryPermission(options) {
         let { origin, path, mode, auto } = Object.assign({}, options);
         path = await this.normalPath(path);
@@ -682,7 +702,7 @@ const FSApi = {
             if (state === PermissionStateEnum.GRANTED) return state;
         }
         let pathPermission = this.getOriginPermission(origin);
-        let level = path.split(new RegExp(`(?<=^/)|(?=[/])`));
+        let level = this.splitPath(path);
         let part = '';
         for (let dir of level) {
             part += dir;
@@ -718,7 +738,7 @@ const FSApi = {
         } else {
             path = await this.normalPath(path);
             if (auto === undefined) auto = true;
-            let paths = path.split(new RegExp(`(?<=^/)|(?=[/])`)).reduce((p, a, i) => (p.push((p[i - 1] || "") + a), p), []);
+            let paths = this.splitPath(path).reduce((p, a, i) => (p.push((p[i - 1] || "") + a), p), []);
             for (let k in pathPermission[mode]) {
                 if (k === path || (ancestor && paths.includes(k)) || (descendant && k.startsWith(path + '/'))) {
                     delete pathPermission[mode][k];
