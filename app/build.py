@@ -40,13 +40,13 @@ copytree(platformAssetDir, platformDir)
 if sys.platform == 'win32':
     try:
         import PyInstaller.__main__
-        # TODO PYTHONUNBUFFERED
         PyInstaller.__main__.run([
-            os.path.join(commonAssetDir, appFileName),
+            # os.path.join(commonAssetDir, appFileName),
+            os.path.join(srcDir, appFileName + '.spec'),
             '--distpath', platformDir,
             '--workpath', os.path.join(rootDir, 'build'),
-            '--specpath', srcDir,
-            '--onefile',
+            # '--specpath', srcDir,
+            # '--onefile',
         ])
     except Exception as e:
         logging.exception('pyinstaller failed to execute')
