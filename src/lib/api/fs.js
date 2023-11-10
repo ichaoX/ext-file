@@ -428,6 +428,31 @@ self.__fs_init = function (fs_options = {}) {
         return await createFileSystemHandle([path, name], realKind, root);
     };
 
+    let concurrentGuard = (func, cacheTimeout = 0) => {
+        let _p = {};
+        return async function (...args) {
+            let _args = JSON.stringify(args);
+            if (!_p[_args]) {
+                _p[_args] = new Promise(async (resolve, reject) => {
+                    try {
+                        resolve(await func.apply(this, args));
+                    } catch (e) {
+                        reject(e);
+                        cacheTimeout = 0;
+                    } finally {
+                        let f = () => { delete _p[_args]; };
+                        if (cacheTimeout > 0) {
+                            setTimeout(f, cacheTimeout);
+                        } else {
+                            f();
+                        }
+                    }
+                });
+            }
+            return await _p[_args];
+        }
+    };
+
     if (!isWorker) {
 
         if (!scope.showOpenFilePicker) {
@@ -669,6 +694,10 @@ self.__fs_init = function (fs_options = {}) {
             return setProto(handle, proto);
         },
     };
+
+    tool.separator = concurrentGuard(tool.separator);
+    tool.queryPermission = concurrentGuard(tool.queryPermission);
+    tool.getKind = concurrentGuard(tool.getKind);
 
     let shareApi = {
         isNativeSupported,
