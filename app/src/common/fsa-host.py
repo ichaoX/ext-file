@@ -14,7 +14,7 @@ import time
 import threading
 import traceback
 
-__version__ = '0.6'
+__version__ = '0.9.1'
 
 try:
     from tkinter import Tk, filedialog
@@ -205,7 +205,21 @@ def task(message):
             if not result:
                 result = None
     elif action == 'scandir':
-        result = os.listdir(data.get('path'))
+        path = data.get('path')
+        _result = os.listdir(path)
+        if data.get('kind'):
+            result = []
+            for _ in _result:
+                item = path+'/'+_
+                if os.path.isfile(item):
+                    kind = 1
+                elif os.path.isdir(item):
+                    kind = 2
+                else:
+                    kind = 0
+                result.append([_, kind])
+        else:
+            result = _result
     elif action == 'getKind':
         path = data.get('path')
         if os.path.isfile(path):

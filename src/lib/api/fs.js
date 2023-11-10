@@ -326,14 +326,20 @@ self.__fs_init = function (fs_options = {}) {
         entries: async function* () {
             await debugHandle(this, 'entries');
             let meta = tool.meta(this);
-            // TODO
-            let gen = getWrapped(this).keys();
-            while (true) {
-                let i = await gen.next();
-                if (i.done) break;
-                let name = i.value;
+            let path = await tool.meta(this).path();
+            let list = await tool.scandir(path, true);
+            for (let item of list) {
+                let name = item;
+                let realKind = null;
+                if (Array.isArray(item)) {
+                    name = item[0];
+                    realKind = {
+                        1: FileSystemHandleKindEnum.FILE,
+                        2: FileSystemHandleKindEnum.DIRECTORY,
+                    }[item[1]] || null;
+                }
                 try {
-                    let handle = await getSubFileSystemHandle(meta, name);
+                    let handle = await getSubFileSystemHandle(meta, name, null, {}, realKind);
                     let result = cloneIntoScope([handle.name]);
                     result.push(handle);
                     yield result;
@@ -395,13 +401,13 @@ self.__fs_init = function (fs_options = {}) {
         return tool.parseHandle(cloneIntoScope(handle));
     };
 
-    let getSubFileSystemHandle = async (meta, name, kind = null, options = {}) => {
+    let getSubFileSystemHandle = async (meta, name, kind = null, options = {}, realKind = null) => {
         let path = await meta.path();
         let root = await meta.root();
         options = options || {};
         path = await tool.joinName(path, name);
         if (kind !== null && (options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-        let realKind = await tool.getKind(path);
+        if (realKind === null) realKind = await tool.getKind(path);
         if (kind && realKind && realKind !== kind) {
             throw TypeMismatchError;
         } else if (kind && options.create) {
@@ -580,9 +586,9 @@ self.__fs_init = function (fs_options = {}) {
             debug('permission', path, mode, state);
             return state;
         },
-        async scandir(path) {
+        async scandir(path, kind = false) {
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            let list = await sendMessage('fs.scandir', { path });
+            let list = await sendMessage('fs.scandir', { path, kind });
             return list;
         },
         async getKind(path) {
