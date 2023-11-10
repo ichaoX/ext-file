@@ -165,7 +165,7 @@ const FSApi = {
                 let handle = options.startIn;
                 if (handle.kind && handle._meta?.cpath) {
                     try {
-                        let path = await this.t.normalPath(await this.t.crypto.decrypt(handle._meta.cpath));
+                        let path = await this.t.parsePath(handle._meta.cpath);
                         if (handle.kind == FileSystemHandleKindEnum.FILE) {
                             options.startIn = await this.t.dirname(path);
                             options.initialfile = await this.t.basename(path);
@@ -464,7 +464,7 @@ const FSApi = {
                 let data = Object.assign({}, message.data || {});
                 message.data = data;
                 for (let key in args) {
-                    if (data[key]) data[key] = await this.t.normalPath(await this.t.crypto.decrypt(data[key]));
+                    if (data[key]) data[key] = await this.t.parsePath(data[key]);
                     let mode = args[key];
                     if (mode !== null) {
                         if (!await this._hasPermission(message, key, mode)) return false;
@@ -560,8 +560,7 @@ const FSApi = {
                 }
                 case 'joinName': {
                     let { path, name } = data;
-                    await this.t.verifyName(name);
-                    result = path.replace(/\/?$/, '/') + name;
+                    result = await this.t.joinName(path, name);
                     isPath = true;
                     break;
                 }
@@ -666,12 +665,30 @@ const FSApi = {
         return path.replace(new RegExp(`^.*[${separators}]`), '');
     },
     async dirname(path) {
+        // XXX
+        if (path === "/") return path;
         let separators = await this.separator(true);
         return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+    },
+    async joinName(path, name) {
+        await this.verifyName(name);
+        return path.replace(/\/?$/, '/') + name;
     },
     async verifyName(name) {
         if (typeof name !== 'string' || ['', '.', '..'].includes(name) || (new RegExp(`[${await this.separator(true)}]`)).test(name)) throw new TypeError(`Name is not allowed.`);
         return true;
+    },
+    async parsePath(cpath) {
+        let name = null;
+        if (cpath && cpath.cdir) {
+            name = cpath.name;
+            cpath = cpath.cdir;
+        }
+        let path = await this.crypto.decrypt(cpath);
+        if (name !== null) {
+            path = await this.joinName(path, name);
+        }
+        return await this.normalPath(path);
     },
     getOriginPermission(origin, state = null) {
         if (!this.data.originPermission[origin]) {
@@ -832,7 +849,7 @@ const FSApi = {
             return btoa(String.fromCharCode(...new Uint8Array(buffer))) + ":" + iv;
         },
         async decrypt(data, text = true) {
-            let [base64, iv] = data.split(":");
+            let [base64, iv] = Array.isArray(data) ? data : data.split(":");
             let result = await crypto.subtle.decrypt(
                 {
                     name: this.algorithm,

@@ -75,11 +75,13 @@ self.__fs_init = function (fs_options = {}) {
         encrypt: new Map(),
         decrypt: new Map(),
         file: new Map(),
+        cpath: new Map(),
     };
 
     let fileCache = {
         timeout: getConfig('FILE_CACHE_EXPIRE', null),
         get(path) {
+            path = tool.stringifyPath(path);
             let item = cacheData.file.get(path);
             if (!item) return null;
             item.atime = Date.now();
@@ -87,6 +89,7 @@ self.__fs_init = function (fs_options = {}) {
         },
         set(path, file) {
             if (this.timeout === 0) return;
+            path = tool.stringifyPath(path);
             cacheData.file.set(path, {
                 atime: Date.now(),
                 blob: file,
@@ -94,6 +97,7 @@ self.__fs_init = function (fs_options = {}) {
             this.autoClear();
         },
         delete(path) {
+            path = tool.stringifyPath(path);
             cacheData.file.delete(path);
         },
         clear() {
@@ -222,9 +226,10 @@ self.__fs_init = function (fs_options = {}) {
     let _FileSystemHandleProto = setProto(cloneIntoScope({
         async isSameEntry(fileSystemHandle) {
             await debugHandle(this, 'isSameEntry', fileSystemHandle);
-            let path = await tool.meta(this).path();
             if (!fileSystemHandle || !fileSystemHandle.kind) throw new TypeError(`parameter 1 is not of type 'FileSystemHandle'.`);
-            return !!(fileSystemHandle.kind === this.kind && fileSystemHandle._meta?.cpath && '' === await tool.diffPath(path, await tool.parsePath(fileSystemHandle._meta.cpath)));
+            if (fileSystemHandle.kind !== this.kind || !fileSystemHandle._meta) return false;
+            let path = await tool.meta(this).path();
+            return '' === await tool.diffPath(path, await tool.meta(fileSystemHandle).path());
         },
         async queryPermission(fileSystemHandlePermissionDescriptor) {
             await debugHandle(this, 'queryPermission', fileSystemHandlePermissionDescriptor);
@@ -329,7 +334,7 @@ self.__fs_init = function (fs_options = {}) {
         entries: async function* () {
             await debugHandle(this, 'entries');
             let meta = tool.meta(this);
-            let path = await tool.meta(this).path();
+            let path = await meta.path();
             let list = await tool.scandir(path, true);
             for (let item of list) {
                 let name = item;
@@ -341,8 +346,13 @@ self.__fs_init = function (fs_options = {}) {
                         2: FileSystemHandleKindEnum.DIRECTORY,
                     }[item[1]] || null;
                 }
+                let handle;
                 try {
-                    let handle = await getSubFileSystemHandle(meta, name, null, {}, realKind);
+                    if (realKind !== null) {
+                        handle = await createFileSystemHandle([path, name], realKind, await meta.root());
+                    } else {
+                        handle = await getSubFileSystemHandle(meta, name, null, {}, realKind);
+                    }
                     let result = cloneIntoScope([handle.name]);
                     result.push(handle);
                     yield result;
@@ -387,10 +397,18 @@ self.__fs_init = function (fs_options = {}) {
 
     let createFileSystemHandle = async (path, kind = FileSystemHandleKindEnum.FILE, root = null) => {
         let name = null;
-        if (Array.isArray(path) && path.length == 2) [path, name] = path;
+        let dir = null;
+        if (Array.isArray(path) && path.length == 2) {
+            [dir, name] = path;
+            if (name) {
+                path = await tool.joinName(dir, name);
+            } else {
+                path = dir;
+            }
+        }
         path = await tool.normalPath(path);
         if (name === null) name = await tool.basename(path);
-        let cpath = await tool.cpath(path);
+        let cpath = await tool.cpath(dir !== null && name ? { dir, name } : path);
         let croot = root ? await tool.cpath(root) : cpath;
         let handle = {
             _meta: {
@@ -405,12 +423,12 @@ self.__fs_init = function (fs_options = {}) {
     };
 
     let getSubFileSystemHandle = async (meta, name, kind = null, options = {}, realKind = null) => {
-        let path = await meta.path();
+        let dir = await meta.path();
         let root = await meta.root();
         options = options || {};
-        path = await tool.joinName(path, name);
+        let path = await tool.joinName(dir, name);
         if (kind !== null && (options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-        if (realKind === null) realKind = await tool.getKind(path);
+        if (realKind === null) realKind = await tool._getKind(path);
         if (kind && realKind && realKind !== kind) {
             throw TypeMismatchError;
         } else if (kind && options.create) {
@@ -428,7 +446,7 @@ self.__fs_init = function (fs_options = {}) {
         } else if (!realKind) {
             throw NotFoundError;
         }
-        return await createFileSystemHandle([path, name], realKind, root);
+        return await createFileSystemHandle([dir, name], realKind, root);
     };
 
     let concurrentGuard = (func, cacheTimeout = 0) => {
@@ -498,7 +516,7 @@ self.__fs_init = function (fs_options = {}) {
                 let path = await sendMessage('fs.showSaveFilePicker', options);
                 if (!path) throw AbortError;
                 await tool.setPermission(path, PermissionStateEnum.GRANTED, FileSystemPermissionModeEnum.READWRITE);
-                let kind = await tool.getKind(path);
+                let kind = await tool._getKind(path);
                 if (kind === FileSystemHandleKindEnum.FILE) {
                     await sendMessage('fs.write', { path, data: new Blob([]) });
                 } else {
@@ -524,6 +542,14 @@ self.__fs_init = function (fs_options = {}) {
             return `/${_separator === '\\' ? '\\\\' : ''}`;
         },
         async _resolvePath(method, path, options = {}) {
+            if (path && path.cdir && path.name) {
+                switch (method) {
+                    case 'basename':
+                        return path.name;
+                    case 'dirname':
+                        return path.cdir;
+                }
+            }
             return await sendMessage(`fs.resolvePath.${method}`, Object.assign({
                 path,
             }, options));
@@ -556,12 +582,29 @@ self.__fs_init = function (fs_options = {}) {
         },
         async dirname(path) {
             if (fs_options.isExternal) return await this._resolvePath('dirname', path);
+            // XXX
+            if (path === "/") return path;
             let separators = await this.separator(true);
             return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
         },
+        stringifyPath(path) {
+            if (path && path.cdir) path = "ext-file://" + path.cdir + ":" + path.name;
+            return path;
+        },
+        async cpathJoinName(cpath, name) {
+            if (name === "") return cpath;
+            if (cpath && cpath.cdir) {
+                let key = this.stringifyPath(cpath);
+                if (!cacheData.cpath.has(key)) {
+                    cacheData.cpath.set(key, cpath = await this._resolvePath('joinName', cpath.cdir, { name: cpath.name }));
+                }
+                cpath = cacheData.cpath.get(key);
+            }
+            return { cdir: cpath, name };
+        },
         async joinName(path, name) {
             await this.verifyName(name);
-            if (fs_options.isExternal) return await this._resolvePath('joinName', path, { name });
+            if (fs_options.isExternal) return await this.cpathJoinName(path, name);
             return path.replace(/\/?$/, '/') + name;
         },
         async verifyName(name) {
@@ -621,6 +664,9 @@ self.__fs_init = function (fs_options = {}) {
         },
         async getKind(path) {
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            return await this._getKind(path);
+        },
+        async _getKind(path) {
             let kind = await sendMessage('fs.getKind', { path });
             return kind;
         },
@@ -643,7 +689,7 @@ self.__fs_init = function (fs_options = {}) {
             fileCache.delete(path);
         },
 
-        async cpath(path) {
+        async _cpath(path) {
             if (fs_options.isExternal) return path;
             let text = path, cache = true;
             if (!text) return text;
@@ -655,7 +701,7 @@ self.__fs_init = function (fs_options = {}) {
             }
             return base64;
         },
-        async parsePath(path) {
+        async _parsePath(path) {
             if (fs_options.isExternal) return path;
             let base64 = path, cache = true;
             if (!base64) return base64;
@@ -666,6 +712,30 @@ self.__fs_init = function (fs_options = {}) {
                 cacheData.decrypt.set(base64, text);
             }
             return text;
+        },
+        async cpath(path) {
+            let name = null;
+            if (path && path.dir) {
+                name = path.name;
+                path = path.dir;
+            }
+            let cpath = await this._cpath(path);
+            if (name) {
+                cpath = await this.cpathJoinName(cpath, name);
+            }
+            return cpath;
+        },
+        async parsePath(cpath) {
+            let name = null;
+            if (cpath && cpath.cdir) {
+                name = cpath.name;
+                cpath = cpath.cdir;
+            }
+            let path = await this._parsePath(cpath);
+            if (name !== null) {
+                path = await this.joinName(path, name);
+            }
+            return path;
         },
         meta(handle) {
             let meta = handle?._meta || handle;
@@ -701,7 +771,8 @@ self.__fs_init = function (fs_options = {}) {
     tool.separator = concurrentGuard(tool.separator);
     tool.queryPermission = concurrentGuard(tool.queryPermission);
     tool.requestPermission = concurrentGuard(tool.requestPermission);
-    tool.getKind = concurrentGuard(tool.getKind);
+    tool._getKind = concurrentGuard(tool._getKind);
+    tool.cpathJoinName = concurrentGuard(tool.cpathJoinName);
 
     let shareApi = {
         isNativeSupported,
