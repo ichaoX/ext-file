@@ -290,9 +290,10 @@ self.__fs_init = function (fs_options = {}) {
             if (stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
             let cache = fileCache.get(path);
             // XXX
-            if (!(cache && cache.lastModified == stat.mtime && cache.size == stat.size)) {
+            let lastModified = Math.round(1000 * stat.mtime);
+            if (!(cache && cache.lastModified == lastModified && cache.size == stat.size)) {
                 let blob = await sendMessage('fs.read', { path });
-                cache = new File([blob], this.name, { lastModified: stat.mtime });
+                cache = new File([blob], this.name, { lastModified });
                 fileCache.set(path, cache);
             }
             return cache;

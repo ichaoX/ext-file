@@ -235,7 +235,7 @@ def task(message):
     elif action == 'stat':
         info = os.stat(data.get('path'))
         result = {
-            'mtime': round(info.st_mtime),
+            'mtime': info.st_mtime,
             'size': info.st_size,
         }
     elif action == 'read':
