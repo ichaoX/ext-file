@@ -5,7 +5,7 @@
     "icons": {
         "32": "/icon.png"
     },
-    "version": "0.9",
+    "version": "0.9.1",
     "permissions": [
         "nativeMessaging",
         "storage",
