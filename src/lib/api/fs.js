@@ -698,6 +698,7 @@ self.__fs_init = function (fs_options = {}) {
 
     tool.separator = concurrentGuard(tool.separator);
     tool.queryPermission = concurrentGuard(tool.queryPermission);
+    tool.requestPermission = concurrentGuard(tool.requestPermission);
     tool.getKind = concurrentGuard(tool.getKind);
 
     let shareApi = {
