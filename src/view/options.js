@@ -301,7 +301,7 @@ type FS_CONFIG = {
     WORKER_ENABLED?: boolean,
     FILE_SIZE_LIMIT?: number,
     FILE_CACHE_EXPIRE?: number,
-    EXPORSE_NAMESPACE?: string | boolean,
+    EXPOSE_NAMESPACE?: string | boolean,
     DEBUG_ENABLED?: boolean,
 };
 `,

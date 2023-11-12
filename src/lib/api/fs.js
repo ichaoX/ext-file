@@ -710,8 +710,8 @@ self.__fs_init = function (fs_options = {}) {
         },
     };
 
-    if (!!getConfig('EXPORSE_NAMESPACE', fs_options.isExternal)) {
-        let shareApiName = getConfig('EXPORSE_NAMESPACE', '__fs', 'string');
+    if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal)) {
+        let shareApiName = getConfig('EXPOSE_NAMESPACE', '__fs', 'string');
         getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }
 

@@ -9,5 +9,5 @@ let FS_CONFIG = {
         browser.runtime.getURL('/assets/file-system-access.js?'),
     ],
     */
-    EXPORSE_NAMESPACE: '__FS',
+    EXPOSE_NAMESPACE: '__FS',
 };
