@@ -204,6 +204,7 @@ def task(message):
             )
             if not result:
                 result = None
+        root.update()
     elif action == 'scandir':
         path = data.get('path')
         _result = os.listdir(path)
@@ -291,27 +292,37 @@ def onError(e, messageId, code=500):
 
 def main():
     MAX_WORKERS = 5
+    isTkMainThread = sys.platform == 'darwin'
     taskQueue = queue.Queue()
     tkQueue = queue.Queue(2)
 
-    def worker(q):
+    def worker(q, once=False):
         while True:
-            message = q.get()
+            if once:
+                try:
+                    message = q.get_nowait()
+                except queue.Empty:
+                    return
+            else:
+                message = q.get()
             try:
                 task(message)
             except Exception as e:
                 onError(e, message.get("id"))
             finally:
                 q.task_done()
+            if once:
+                break
 
     for _ in range(MAX_WORKERS):
         t = threading.Thread(target=worker, args=(taskQueue,))
         t.daemon = True
         t.start()
 
-    tkThread = threading.Thread(target=worker, args=(tkQueue,))
-    tkThread.daemon = True
-    tkThread.start()
+    if not isTkMainThread:
+        tkThread = threading.Thread(target=worker, args=(tkQueue,))
+        tkThread.daemon = True
+        tkThread.start()
 
     while True:
         message = getMessage()
@@ -326,6 +337,8 @@ def main():
                 taskQueue.put(message)
         except Exception as e:
             onError(e, messageId)
+        if isTkMainThread:
+            worker(tkQueue, True)
 
     taskQueue.join()
 

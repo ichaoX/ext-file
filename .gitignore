@@ -2,3 +2,4 @@
 .venv*
 .web-extension-id
 web-ext-artifacts
+*.DS_Store

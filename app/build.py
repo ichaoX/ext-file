@@ -12,6 +12,7 @@ commonAssetDir = os.path.join(srcDir, 'common')
 distDir = os.path.join(rootDir, 'dist')
 windowsDir = os.path.join(distDir, 'windows')
 linuxDir = os.path.join(distDir, 'linux')
+macDir = os.path.join(distDir, 'macos')
 
 appFileName = 'fsa-host.py'
 manifestFileName = 'manifest.template.json'
@@ -54,6 +55,17 @@ if sys.platform == 'win32':
 
 platformDir = linuxDir
 platformAssetDir = os.path.join(srcDir, 'linux')
+
+if os.path.isdir(platformDir):
+    shutil.rmtree(platformDir)
+os.makedirs(platformDir)
+
+copytree(commonAssetDir, platformDir)
+copytree(platformAssetDir, platformDir)
+
+
+platformDir = macDir
+platformAssetDir = os.path.join(srcDir, 'macos')
 
 if os.path.isdir(platformDir):
     shutil.rmtree(platformDir)
