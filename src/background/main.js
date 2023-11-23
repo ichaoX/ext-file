@@ -58,10 +58,12 @@ util.addListener(browser.runtime.onMessageExternal, (message, sender, sendRespon
 
 util.addListener(browser.runtime.onInstalled, async (details) => {
     console.log(details);
-    try {
-        await FSApi.tryGetConstants();
-        FSApi.disconnect();
-    } catch (e) {
-        console.warn(e);
+    if (details && details.reason === 'install') {
+        try {
+            await FSApi.tryGetConstants();
+            FSApi.disconnect();
+        } catch (e) {
+            console.warn(e);
+        }
     }
 });
