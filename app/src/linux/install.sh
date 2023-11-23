@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 cd "$(dirname $0)"
 
@@ -28,6 +29,12 @@ chmod +x "$APP_PATH"
 
 MANIFEST="$(cat ./manifest.template.json)"
 
-[ -d ~/.mozilla/native-messaging-hosts/ ] || mkdir -p ~/.mozilla/native-messaging-hosts/
+MANIFEST_DIR="$HOME/.mozilla/native-messaging-hosts"
 
-echo "${MANIFEST//\"__APP_PATH__\"/$(printf '"%s"' "${APP_PATH//\"/\\\"}")}" > ~/.mozilla/native-messaging-hosts/webext.fsa.app.json
+[ "$UID" == "0" ] && MANIFEST_DIR="/usr/lib/mozilla/native-messaging-hosts"
+
+mkdir -p "$MANIFEST_DIR"
+
+echo "${MANIFEST//\"__APP_PATH__\"/$(printf '"%s"' "${APP_PATH//\"/\\\"}")}" > "$MANIFEST_DIR/webext.fsa.app.json"
+
+echo "Installed."
