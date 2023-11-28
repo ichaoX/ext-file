@@ -99,6 +99,7 @@ let FS_CONFIG = {
         },
         code_editor: false,
         prompt_tab: 'auto',
+        app_tips: true,
     },
     async getSetting(key, def = null, area = null) {
         if (!area) area = this._storageArea;

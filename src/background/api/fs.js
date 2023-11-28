@@ -19,17 +19,17 @@ const FSApi = {
         originPrompt: {},
         settings: {},
     },
-    _helperAppTips: true,
+    _helperAppTipsExpire: 0,
     async port() {
         if (!this._port) {
             this._port = browser.runtime.connectNative(this.application);
             util.addListener(this._port.onDisconnect, (port) => {
                 console.warn('disconnect', port);
-                if (this._helperAppTips) {
-                    this._helperAppTips = false;
+                if (this.data.settings.app_tips && this._helperAppTipsExpire < Date.now()) {
+                    this._helperAppTipsExpire = Date.now() + 60 * 1000;
                     setTimeout(async () => {
                         let url = browser.runtime.getURL('/view/doc.html');
-                        let fullUrl = `${url}#app`;
+                        let fullUrl = `${url}#requires-app`;
                         try {
                             let tabs = await browser.tabs.query({
                                 url,
@@ -55,7 +55,7 @@ const FSApi = {
             });
             util.addListener(this._port.onMessage, (response) => {
                 util.log('response', response);
-                this._helperAppTips = false;
+                // this._helperAppTipsExpire = 0;
                 let id = response.id;
                 if (!this.resolves[id]) return;
                 if (this.parts[id]) {
@@ -81,7 +81,9 @@ const FSApi = {
         await this.crypto.loadKey();
         let contentScriptOptions = await util.getSetting("content_script_match");
         await this.contentScriptsRegister(contentScriptOptions);
-        this.data.settings.prompt_tab = await util.getSetting("prompt_tab");
+        await Promise.all(['prompt_tab', 'app_tips'].map(async (k) => {
+            this.data.settings[k] = await util.getSetting(k);
+        }));
     },
     action: {
         get t() {

@@ -10,6 +10,10 @@
         :target {
             background-color: lightyellow;
         }
+        :target .warn{
+            color: red;
+            font-weight: bold;
+        }
 
         body {
             margin: 2rem;
@@ -103,9 +107,9 @@
             target="_blank">vscode.dev</a> read and write local files and folders.
     </p>
     <h2 id="app"><a href="#app">Helper App</a></h2>
-    <p>
-        The local file operations required by this extension cannot be performed in the browser, and a helper app needs
-        to be installed to assist in the related work.
+    <p id="requires-app">
+        The local file operations required by this extension cannot be performed in the browser, and <span class="warn">a helper
+            app needs to be installed to assist in the related work.</span>
     </p>
     <p>
         After the helper app is installed, the extension will automatically run the helper app when necessary.

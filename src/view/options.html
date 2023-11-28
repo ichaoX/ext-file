@@ -81,13 +81,15 @@
         }
 
         .btn-group {
-            margin: 0 1rem 1rem;
+            margin: 0.5rem 1rem;
         }
 
         .section .btn-group {
             margin-left: 0rem;
         }
 
+        .btn+.btn,
+        button+.btn,
         button+button {
             margin-left: 1rem;
         }
@@ -119,6 +121,10 @@
                 <button type="button" class="recheck">Recheck</button>
                 <button type="button" class="stop">Stop</button>
             </div>
+            <label>
+                <input type="checkbox" data-setting="app_tips" />
+                Auto open help when the helper app fails to run
+            </label>
         </details>
         <details class="section ui">
             <summary>Accessibility</summary>
@@ -132,9 +138,9 @@
             </label>
             <label>
                 <input type="checkbox" data-setting="code_editor" />
-                Enable Code Editor (additional <a href="https://addons.mozilla.org/en-US/firefox/addon/code-editor/"
-                    target="_blank">extension</a>
-                required)
+                Enable Code Editor <span class="help">(additional <a
+                        href="https://addons.mozilla.org/en-US/firefox/addon/code-editor/" target="_blank">extension</a>
+                    required)</span>
             </label>
         </details>
         <details class="section content-script-options">
@@ -155,6 +161,8 @@
         <div class="btn-group">
             <button type="button" class="save">Save</button>
             <button type="button" class="reset">Reset to default</button>
+            <a class="btn" href="./doc.html" target="doc"><button type="button">Open Help</button></a>
+            <!-- <a class="btn" href="/demo/file.html" target="demo"><button type="button">Demo</button></a> -->
         </div>
     </form>
     <script src="./options.js"></script>
