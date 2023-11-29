@@ -107,7 +107,12 @@ let FS_CONFIG = {
         return (await browser.storage[area].get({ [newkey]: def || this._defaultConfig[key] || null }))[newkey];
     },
     async setSetting(key, data, area = null) {
+        let def = undefined;
+        if (area === null) def = this._defaultConfig[key]
         if (!area) area = this._storageArea;
+        if (def !== undefined && JSON.stringify(def) === JSON.stringify(data)) {
+            return await browser.storage[area].remove([key]);
+        }
         key = `${this._storagePrefix}${key}`;
         return await browser.storage[area].set({ [key]: data });
     },
