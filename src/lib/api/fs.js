@@ -71,34 +71,36 @@ self.__fs_init = function (fs_options = {}) {
     // debug('fs start');
 
     // data
-    let encryptCache = {};
-    let decryptCache = {};
+    let cacheData = {
+        encrypt: new Map(),
+        decrypt: new Map(),
+        file: new Map(),
+    };
 
     let fileCache = {
         timeout: getConfig('FILE_CACHE_EXPIRE', null),
-        data: {},
         get(path) {
-            let item = this.data[path];
+            let item = cacheData.file.get(path);
             if (!item) return null;
             item.atime = Date.now();
             return item.blob;
         },
         set(path, file) {
             if (this.timeout === 0) return;
-            this.data[path] = {
+            cacheData.file.set(path, {
                 atime: Date.now(),
                 blob: file,
-            };
+            });
             this.autoClear();
         },
         delete(path) {
-            delete this.data[path];
+            cacheData.file.delete(path);
         },
         clear() {
             let minTime = Date.now() - 1000 * this.timeout;
-            for (let path in this.data) {
-                if (this.data[path].atime < minTime) {
-                    delete this.data[path];
+            for (let [path, file] of cacheData.file) {
+                if (file.atime < minTime) {
+                    cacheData.file.delete(path);
                     debug('fileCache.clear', path);
                 }
             }
@@ -106,7 +108,7 @@ self.__fs_init = function (fs_options = {}) {
         nextExpire() {
             if (this.timeout === 0 || this.timeout === null) return;
             // XXX
-            return Math.min(...Object.values(this.data).map(item => item.atime));
+            return Math.min(...[...cacheData.file.values()].map(item => item.atime));
         },
         timeoutID: null,
         nextTimeout: 0,
@@ -430,27 +432,27 @@ self.__fs_init = function (fs_options = {}) {
     };
 
     let concurrentGuard = (func, cacheTimeout = 0) => {
-        let _p = {};
+        let _p = new Map();
         return async function (...args) {
             let _args = JSON.stringify(args);
-            if (!_p[_args]) {
-                _p[_args] = new Promise(async (resolve, reject) => {
+            if (!_p.has(_args)) {
+                _p.set(_args, new Promise(async (resolve, reject) => {
                     try {
                         resolve(await func.apply(this, args));
                     } catch (e) {
                         reject(e);
                         cacheTimeout = 0;
                     } finally {
-                        let f = () => { delete _p[_args]; };
+                        let f = () => { _p.delete(_args); };
                         if (cacheTimeout > 0) {
                             setTimeout(f, cacheTimeout);
                         } else {
                             f();
                         }
                     }
-                });
+                }));
             }
-            return await _p[_args];
+            return await _p.get(_args);
         }
     };
 
@@ -645,11 +647,11 @@ self.__fs_init = function (fs_options = {}) {
             if (fs_options.isExternal) return path;
             let text = path, cache = true;
             if (!text) return text;
-            if (text in encryptCache) return encryptCache[text];
+            if (cacheData.encrypt.has(text)) return cacheData.encrypt.get(text);
             let base64 = await sendMessage('fs.encrypt', text);
             if (cache) {
-                encryptCache[text] = base64;
-                decryptCache[base64] = text;
+                cacheData.encrypt.set(text, base64);
+                cacheData.decrypt.set(base64, text);
             }
             return base64;
         },
@@ -657,11 +659,11 @@ self.__fs_init = function (fs_options = {}) {
             if (fs_options.isExternal) return path;
             let base64 = path, cache = true;
             if (!base64) return base64;
-            if (base64 in decryptCache) return decryptCache[base64];
+            if (cacheData.decrypt.has(base64)) return cacheData.decrypt.get(base64);
             let text = await sendMessage('fs.decrypt', base64);
             if (cache) {
-                if (!(text in encryptCache)) encryptCache[text] = base64;
-                decryptCache[base64] = text;
+                if (!cacheData.encrypt.has(text)) cacheData.encrypt.set(text, base64);
+                cacheData.decrypt.set(base64, text);
             }
             return text;
         },
