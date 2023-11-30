@@ -801,9 +801,23 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
                     try {
                         let options = data.data;
                         switch (data[actionName]) {
-                            case 'sendMessage':
-                                response.data = await sendMessage(options?.action, options?.data);
+                            case 'sendMessage': {
+                                let action = options.action || '';
+                                let data = options.data;
+                                if (!isWorker && action.startsWith('page.')) {
+                                    debug(action, data);
+                                    switch (action.replace('page.', '')) {
+                                        case 'fetch':
+                                            response.data = cloneIntoScope(await (await fetch(data.url)).blob());
+                                            break;
+                                        default:
+                                            throw 'Not implemented';
+                                    }
+                                    break;
+                                }
+                                response.data = await sendMessage(action, data);
                                 break;
+                            }
                         }
                     } catch (e) {
                         response.code = 500;

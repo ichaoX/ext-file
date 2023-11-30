@@ -66,6 +66,7 @@ if (self.__fs_init) {
             if (clone) result = cloneIntoScope(result);
             resolve(result);
         } catch (e) {
+            debug(e);
             reject(e);
         }
     });
@@ -100,14 +101,6 @@ if (self.__fs_init) {
     };
     let sendMessage = async (action, data) => {
         try {
-            if (action.startsWith('page.')) {
-                debug(action, data);
-                switch (action.replace('page.', '')) {
-                    case 'fetch':
-                        return cloneIntoScope(await (await fetch(data.url)).blob());
-                }
-                throw 'Not implemented';
-            }
             let response = await browser.runtime.sendMessage({ action, data, origin: scope.origin || location.origin });
             if (response.code !== 200) {
                 console.warn(response);
