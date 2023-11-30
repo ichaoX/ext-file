@@ -18,6 +18,7 @@ const FSApi = {
         originPermission: {},
         originPrompt: {},
         settings: {},
+        limitPrompt: new Map(),
     },
     _helperAppTipsExpire: 0,
     async port() {
@@ -246,17 +247,26 @@ const FSApi = {
         },
         async requestPermission(message, sender) {
             let promptType = this.t.data.settings.prompt_tab;
-            if (promptType === 'never'
-                || (promptType === 'auto'
-                    && sender.id === browser.runtime.id
-                )) return util.wrapResponse(null);
+            if (promptType === 'never') return util.wrapResponse(null);
             let data = message.data || {};
             let origin = message.origin;
+            let promptKey = JSON.stringify([origin, data.path, data.mode || FileSystemPermissionModeEnum.READ]);
+            let limitPrompt = this.t.data.limitPrompt;
+            let now = Date.now();
+            let promptData = limitPrompt.get(promptKey) || { lastTime: 0, blockTime: 0 };
+            let isLimit = promptData.lastTime > now - 60 * 1000;
+            promptData.lastTime = now;
+            limitPrompt.set(promptKey, promptData);
+            if (!isLimit && promptType === 'auto' && sender.id === browser.runtime.id) return util.wrapResponse(null);
             if (await this.t.queryPermission({
                 path: data.path,
                 mode: data.mode,
                 origin,
             }) === PermissionStateEnum.GRANTED) return util.wrapResponse(PermissionStateEnum.GRANTED);
+            if (promptData.blockTime > now - 60 * 1000) {
+                console.info('blockPrompt', promptKey);
+                return util.wrapResponse(PermissionStateEnum.PROMPT);
+            }
             let url = browser.runtime.getURL("/view/prompt.html") + `?origin=${encodeURIComponent(origin)}`;
             let originPrompt = this.t.data.originPrompt;
             if (originPrompt[origin]) {
@@ -277,6 +287,7 @@ const FSApi = {
                     mode: data.mode,
                     origin,
                 }) === PermissionStateEnum.GRANTED) return util.wrapResponse(PermissionStateEnum.GRANTED);
+                // TODO blockPrompt
             }
             let id = this.t.createId();
             let resolve;
@@ -288,7 +299,7 @@ const FSApi = {
                     delete originPrompt[origin];
                 }
                 r();
-                setTimeout(viewTab, 200);
+                setTimeout(viewTab, 100);
             }));
             originPrompt[origin] = {
                 id,
@@ -305,6 +316,16 @@ const FSApi = {
                                 mode: data.mode,
                                 state: PermissionStateEnum.GRANTED,
                             });
+                            return true;
+                        } finally {
+                            resolve();
+                        }
+                    },
+                    [isLimit ? 'block' : '_block']: () => {
+                        let promptData = limitPrompt.get(promptKey) || { lastTime: 0, blockTime: 0 };
+                        try {
+                            promptData.blockTime = Date.now();
+                            limitPrompt.set(promptKey, promptData);
                             return true;
                         } finally {
                             resolve();

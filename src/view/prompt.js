@@ -21,6 +21,13 @@ let renderText = (key, text, attr = false) => {
     let m = prompt.message;
     console.log(prompt);
     renderText('origin', origin);
+    if (Array.isArray(prompt.resolveKeys)) {
+        [...document.querySelectorAll("[data-action].hide")].forEach($n => {
+            if (prompt.resolveKeys.includes($n.getAttribute("data-action"))) {
+                $n.classList.remove('hide');
+            }
+        });
+    }
     switch (m.action) {
         case 'requestPermission': {
             try {
