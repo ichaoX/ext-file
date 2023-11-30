@@ -712,11 +712,6 @@ self.__fs_init = function (fs_options = {}) {
         },
     };
 
-    if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal)) {
-        let shareApiName = getConfig('EXPOSE_NAMESPACE', '__fs', 'string');
-        getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
-    }
-
     for (let o of ['FileSystemHandle', 'FileSystemFileHandle', 'FileSystemDirectoryHandle', 'FileSystemWritableFileStream']) {
         if (scope[o]) {
             shareApi.nativeApi[o] = scope[o];
@@ -875,6 +870,11 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
                 warn(event);
             });
         }
+    }
+
+    if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal)) {
+        let shareApiName = getConfig('EXPOSE_NAMESPACE', '__fs', 'string');
+        getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }
 
 }
