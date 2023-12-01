@@ -93,6 +93,7 @@ let FS_CONFIG = {
     WORKER_ENABLED: ['vscode.dev'].includes(location.hostname),
     FILE_SIZE_LIMIT: 30 * 1024 ** 2,
     FILE_CACHE_EXPIRE: 5 * 60,
+    EXPOSE_NAMESPACE: true,
 };
 `,
             }],

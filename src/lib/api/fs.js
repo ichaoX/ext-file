@@ -967,7 +967,7 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
     }
 
     if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal)) {
-        let shareApiName = getConfig('EXPOSE_NAMESPACE', '__fs', 'string');
+        let shareApiName = getConfig('EXPOSE_NAMESPACE', '__FILE_SYSTEM_TOOLS__', 'string');
         getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }
 
