@@ -14,7 +14,8 @@ build_app:
 .PHONY: build_lib_ext
 build_lib_ext:
 	cd "${WEBEXT_DIR}" && \
-	cat lib/enum.js lib/api/fs.js lib/external.js lib/worker.js > assets/file-system-access.js
+	echo "/**\n * File System Access Extension\n * @version: $$(grep -oP '(?<="version": ")[\.\d]+' manifest.json)\n */\n" > assets/file-system-access.js && \
+	cat lib/enum.js lib/api/fs.js lib/external.js lib/worker.js >> assets/file-system-access.js
 
 .PHONY: build_assets
 build_assets: build_lib_ext build_app
