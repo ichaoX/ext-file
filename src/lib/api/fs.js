@@ -788,6 +788,14 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
                     url: baseURI,
                 },
             });
+            getWrapped(worker).postMessage = cloneIntoScope(function (data, ...args) {
+                // XXX
+                if (data && data[actionName]) {
+                    warn('block worker.postMessage', [data, ...args]);
+                    return;
+                }
+                return __postMessage(data, ...args);
+            });
             let onMessage = (data) => {
                 if (!(data && data[actionName])) return;
                 // debug('worker.message', data);

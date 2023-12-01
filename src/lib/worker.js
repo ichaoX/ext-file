@@ -152,6 +152,14 @@ if (self.importScripts) {
         }
     };
 
+    scope.postMessage = function (data, ...args) {
+        // XXX
+        if (data && data[actionName]) {
+            warn('block self.postMessage', [data, ...args]);
+            return;
+        }
+        return __postMessage(data, ...args);
+    };
     __addEventListener.bind(scope)('message', function (event) {
         if (port.onMessage(event.data)) return;
         dispatchMessageEvent.bind(true)(event);
