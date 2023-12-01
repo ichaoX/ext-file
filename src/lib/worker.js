@@ -222,6 +222,7 @@ if (self.importScripts) {
             get baseURI() {
                 return __baseURI;
             },
+            isExternal: true,
         };
         self.__fs_init(fs_options);
     }

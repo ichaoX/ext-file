@@ -30,7 +30,7 @@ if (self.__fs_init && self.importScripts) {
 
     let sendMessage = async (action, data) => {
         try {
-            action = `ext:${action}`;
+            if (!action.startsWith('ext:')) action = `ext:${action}`;
             // console.log('request', action, data);
             let response;
             try {

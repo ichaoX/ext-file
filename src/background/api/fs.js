@@ -95,6 +95,7 @@ const FSApi = {
             let id = this.t.createId();
             m.id = id;
             if (m.origin) delete m.origin;
+            if (m.hasOwnProperty('isTrusted')) delete m.isTrusted;
             util.log('request', m);
             return await new Promise((resolve, reject) => {
                 this.t.resolves[id] = resolve;
@@ -257,7 +258,7 @@ const FSApi = {
             let isLimit = promptData.lastTime > now - 60 * 1000;
             promptData.lastTime = now;
             limitPrompt.set(promptKey, promptData);
-            if (!isLimit && promptType === 'auto' && sender.id === browser.runtime.id) return util.wrapResponse(null);
+            if (!isLimit && promptType === 'auto' && sender.id === browser.runtime.id && message.isTrusted !== false) return util.wrapResponse(null);
             if (await this.t.queryPermission({
                 path: data.path,
                 mode: data.mode,
@@ -505,6 +506,7 @@ const FSApi = {
             if (promptType === 'never'
                 || (promptType === 'auto'
                     && sender.id === browser.runtime.id
+                    && message.isTrusted !== false
                 )) mode = null;
             if (!await this._decryptAndVerifyArgs(message, { path: mode })) return this._403;
             return await this._action(message);
@@ -601,6 +603,7 @@ const FSApi = {
             console.warn(sender, message);
             return util.wrapResponse('Unauthorized', 401);
         }
+        message.isTrusted = message.origin === (self.origin || location.origin);
         if (subaction.length > 0) {
             message.action = action;
             message.subaction = subaction.join('.');

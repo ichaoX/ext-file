@@ -823,6 +823,7 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
                                     }
                                     break;
                                 }
+                                if (!isWorker) action = 'ext:' + action;
                                 response.data = await sendMessage(action, data);
                                 break;
                             }
