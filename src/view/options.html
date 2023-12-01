@@ -7,6 +7,9 @@
     <link rel="shortcut icon" href="/icon.png">
     <title>File System Access Options</title>
     <style>
+        :target {
+            background-color: lightyellow;
+        }
         form {
             max-width: 800px;
         }
@@ -107,7 +110,7 @@
 
 <body>
     <form>
-        <details open class="section app-options">
+        <details id="app" open class="section app-options">
             <summary>Helper App</summary>
             <div class="state">
                 <label><span class="label">State
@@ -118,7 +121,7 @@
                         data-status="">Unknown</span></label>
             </div>
             <div class="btn-group">
-                <button type="button" class="recheck">Recheck</button>
+                <button type="button" class="start">Start</button>
                 <button type="button" class="stop">Stop</button>
             </div>
             <label>
@@ -126,7 +129,7 @@
                 Auto open help when the helper app fails to run
             </label>
         </details>
-        <details class="section ui">
+        <details id="ui" class="section ui">
             <summary>Accessibility</summary>
             <label>
                 Request permissions via a separate tab:
@@ -143,7 +146,7 @@
                     required)</span>
             </label>
         </details>
-        <details class="section content-script-options">
+        <details id="content-script" class="section content-script-options">
             <summary>Content Script</summary>
             <label> * Match patterns
                 <span class="help">(<a href="./doc.html#match-patterns" target="doc">?</a>)</span>

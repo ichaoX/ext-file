@@ -10,13 +10,16 @@
         :target {
             background-color: lightyellow;
         }
-        :target .warn{
+
+        :target .warn {
             color: red;
             font-weight: bold;
         }
 
         body {
-            margin: 2rem;
+            max-width: 1100px;
+            padding: 0 2rem;
+            margin: auto;
             margin-bottom: 33vh;
         }
 
@@ -49,6 +52,10 @@
             border-left-width: 0.4rem;
         }
 
+        li {
+            margin: 0.5rem 0;
+        }
+
         /*
         a[href^="http"]::after {
             content: " (" attr(href) ")";
@@ -68,6 +75,11 @@
             padding: 0.2rem 1rem;
         }
 
+        td:empty::before {
+            content: '--';
+            opacity: 0.5;
+        }
+
         tbody tr {
             background-color: #f7f7f7;
         }
@@ -80,6 +92,10 @@
             background-color: rgb(242, 241, 241);
             padding: 0.125rem;
             border-radius: 0.125rem;
+        }
+
+        td code {
+            background-color: #e7e7e7;
         }
 
         .help {
@@ -96,6 +112,13 @@
             color: darkred;
             margin-left: 0.5rem;
         }
+
+        [data-unit]::after {
+            content: "(" attr(data-unit) ")";
+            font-size: 0.8rem;
+            color: gray;
+            margin-left: 0.5rem;
+        }
     </style>
 </head>
 
@@ -106,10 +129,38 @@
             Access API</a> to Firefox that helps web apps such as <a href="https://vscode.dev"
             target="_blank">vscode.dev</a> read and write local files and folders.
     </p>
+    <p>
+        This extension is <a href="https://github.com/ichaoX/ext-file" target="_blank">open source</a>
+        and you can file bug reports or feature requests on the <a href="https://github.com/ichaoX/ext-file/issues"
+            target="_blank">GitHub issue</a>.
+    </p>
+    <h2 id="limitations"><a href="#limitations">Limitations</a></h2>
+    <ul>
+        <li>
+            By default, <code>FileSystemHandle</code> will lose its instance methods after cloning (e.g. using
+            <code>IndexedDB</code> or <code>postMessage</code>), and requires additional configuration of the <a
+                href="#fs_config_clone_enabled"><code>CLONE_ENABLED</code></a>.
+            Web developers can use <code>__FILE_SYSTEM_TOOLS__.parseHandle(handle)</code> to restore the instance
+            methods.
+        </li>
+        <li>
+            Limited <a target="_blank"
+                href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API#worker_global_contexts_and_functions">Worker
+                context</a> support and requires additional configuration of the <a
+                href="#fs_config_worker_enabled"><code>WORKER_ENABLED</code></a>.
+        </li>
+        <li>
+            Large file reads and writes may take up a lot of memory, read file size is limited by the <a
+                href="#fs_config_file_size_limit"><code>FILE_SIZE_LIMIT</code></a>.
+        </li>
+        <li>
+            <code>DataTransferItem.prototype.getAsFileSystemHandle</code> is not implemented.
+        </li>
+    </ul>
     <h2 id="app"><a href="#app">Helper App</a></h2>
     <p id="requires-app">
-        The local file operations required by this extension cannot be performed in the browser, and <span class="warn">a helper
-            app needs to be installed to assist in the related work.</span>
+        The local file operations required by this extension cannot be performed in the browser, and <span
+            class="warn">a helper app needs to be installed to assist in the related work.</span>
     </p>
     <p>
         After the helper app is installed, the extension will automatically run the helper app when necessary.
@@ -132,7 +183,7 @@
                 <td rowspan="2">Windows</td>
                 <td>Full</td>
                 <td><a target="_blank" href="https://github.com/ichaoX/ext-file/releases">Releases</a></td>
-                <td>--</td>
+                <td></td>
             </tr>
             <tr>
                 <td>Lite</td>
@@ -150,12 +201,12 @@
                 <td>macOS</td>
                 <td>Lite</td>
                 <td><a target="_blank" href="/assets/helper-app-lite-macos.zip">Download</a></td>
-                <td>--</td>
+                <td></td>
             </tr>
             <tr>
                 <td>Other</td>
-                <td>--</td>
-                <td>--</td>
+                <td></td>
+                <td></td>
                 <td>Note: You can refer to other installer for similar system and <a target="_blank"
                         href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_manifests#manifest_location">Manifest
                         location</a> for installation.
@@ -165,12 +216,12 @@
     </table>
     <h3 id="check-app"><a href="#check-app">Check the helper app</a></h3>
     <p>
-        Open the <a href="./options.html" target="options">options page</a> and check the state of the <q>Helper
+        Open the <a href="./options.html#app" target="options">options page</a> and check the state of the <q>Helper
             App</q>.
     </p>
     <ul>
         <li>
-            If the state is <em>Unknown</em>, please click the <q>Recheck</q> button.
+            If the state is <em>Unknown</em>, please click the <q>Start</q> button.
         </li>
         <li>
             If the state is <em>Not Installed</em>, please <a href="#install-app">install the helper app</a>.
@@ -194,8 +245,8 @@
             href="https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/contentScripts/register#parameters"
             target="_blank"><code>contentScriptOptions</code></a> for details of all keys, which must conform to <a
             href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON#javascript_and_json_differences"
-            target="_blank">JSON</a> syntax when filled in on the <a href="./options.html" target="options">options
-            page</a>.
+            target="_blank">JSON</a> syntax when filled in on the <a href="./options.html#content-script"
+            target="options">options page</a>.
     </p>
     <h3 id="env-vars"><a href="#env-vars">Configuration parameters</a></h3>
     <p>
@@ -206,7 +257,7 @@
             href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types#declarations"
             target="_blank">declaration variable statement</a>,
         which must conform to <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
-            target="_blank">JavaScript</a> syntax when filled in on the <a href="./options.html"
+            target="_blank">JavaScript</a> syntax when filled in on the <a href="./options.html#content-script"
             target="options">options page</a>.
     </p>
     <table>
@@ -217,7 +268,6 @@
             <tr>
                 <th>Key Name</th>
                 <th>Type</th>
-                <th>Unit</th>
                 <th>Description</th>
             </tr>
         </thead>
@@ -225,54 +275,48 @@
             <tr>
                 <td>API_ENABLED</td>
                 <td><code>boolean</code></td>
-                <td>--</td>
                 <td>Enable polyfill for <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_API"
                         target="_blank">File System API</a>.</td>
             </tr>
             <tr>
                 <td>OVERRIDE_ENABLED</td>
                 <td><code>boolean</code></td>
-                <td>--</td>
                 <td>Override native <code>FileSystem*</code> API to <code>Object</code>.</td>
             </tr>
             <tr>
-                <td class="experimental">CLONE_ENABLED</td>
+                <td id="fs_config_clone_enabled" class="experimental">CLONE_ENABLED</td>
                 <td><code>boolean</code></td>
-                <td>--</td>
                 <td>
-                    Preserve methods when cloning <code>FileSystem*Handle</code>.
+                    Preserve instance methods when cloning <code>FileSystem*Handle</code>.
                 </td>
             </tr>
             <tr>
-                <td class="experimental">WORKER_ENABLED</td>
+                <td id="fs_config_worker_enabled" class="experimental">WORKER_ENABLED</td>
                 <td><code>boolean</code></td>
-                <td>--</td>
                 <td>
                     Inject File System API into <a href="https://developer.mozilla.org/en-US/docs/Web/API/Worker"
                         target="_blank">worker</a>.</td>
             </tr>
             <tr>
-                <td>FILE_SIZE_LIMIT</td>
-                <td><code>number</code></td>
-                <td>byte</td>
+                <td id="fs_config_file_size_limit">FILE_SIZE_LIMIT</td>
+                <td data-unit="byte"><code>number</code></td>
                 <td>Limit file size when reading.</td>
             </tr>
             <tr>
                 <td>FILE_CACHE_EXPIRE</td>
-                <td><code>number</code></td>
-                <td>second</td>
+                <td data-unit="second"><code>number</code></td>
                 <td>Clear cache for files not accessed beyond timeout.</td>
             </tr>
             <tr>
                 <td>EXPOSE_NAMESPACE</td>
                 <td><code>string | boolean</code></td>
-                <td>--</td>
-                <td>Exposing utility object to the global scope.</td>
+                <td>Exposing utility object to the global scope. If set to <code>true</code> then the namespace is
+                    <code>__FILE_SYSTEM_TOOLS__</code>.
+                </td>
             </tr>
             <tr>
                 <td>DEBUG_ENABLED</td>
                 <td><code>boolean</code></td>
-                <td>--</td>
                 <td>Enable Debug mode.</td>
             </tr>
         </tbody>

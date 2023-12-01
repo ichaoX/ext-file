@@ -138,7 +138,7 @@ let getFormData = () => {
             $n.textContent = state[key] || 'Unknown';
         });
     };
-    $section.querySelector(".recheck").onclick = function (event) {
+    $section.querySelector(".start").onclick = function (event) {
         getState(true);
     };
     $section.querySelector(".stop").onclick = async function (event) {
