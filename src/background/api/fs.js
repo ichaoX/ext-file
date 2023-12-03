@@ -188,8 +188,8 @@ const FSApi = {
                 }
             }
             if (options.startIn) {
-                // FIX: C:
-                options.startIn = options.startIn.replace(/(\/)?$/, '/');
+                // XXX: C:
+                options.startIn = options.startIn.replace(/^([a-z]:)$/i, '$1/');
             }
             message.data = options;
             let response = await this.request(message);
