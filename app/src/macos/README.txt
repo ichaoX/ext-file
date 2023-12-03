@@ -9,7 +9,7 @@ To install the project, follow these steps:
 ./install.command
 ```
 
-This script will add a manifest file where the browser can find the native application.
+This script will add a manifest file where the browser can find this helper app.
 
 # Uninstallation
 
