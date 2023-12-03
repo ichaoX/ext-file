@@ -187,6 +187,10 @@ const FSApi = {
                     options.startIn = Object.values(config).sort((a, b) => b.atime - a.atime)[0].path;
                 }
             }
+            if (options.startIn) {
+                // FIX: C:
+                options.startIn = options.startIn.replace(/(\/)?$/, '/');
+            }
             message.data = options;
             let response = await this.request(message);
             if (response.code == 200 && response.data) {
