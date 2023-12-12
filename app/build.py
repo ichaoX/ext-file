@@ -47,11 +47,17 @@ if sys.platform == 'win32':
             '--distpath', platformDir,
             '--workpath', os.path.join(rootDir, 'build'),
             # '--specpath', srcDir,
-            # '--onefile',
+            # '--onedir',
+            # '--contents-directory', 'lib',
         ])
     except Exception as e:
         logging.exception('pyinstaller failed to execute')
 
+_ = os.path.join(platformDir, os.path.splitext(appFileName)[0])
+if os.path.isdir(_):
+    for name in os.listdir(_):
+        shutil.move(os.path.join(_, name), platformDir)
+    os.rmdir(_)
 
 platformDir = linuxDir
 platformAssetDir = os.path.join(srcDir, 'linux')
