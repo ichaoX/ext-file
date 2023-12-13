@@ -118,6 +118,7 @@ def response(data, messageId, code=200):
 def parseWellKnownDirectory(name):
     if not isinstance(name, basestring if 'basestring' in vars(__builtins__) else str):
         name = "documents"
+    # XXX
     path = {
         "desktop": "~/Desktop",
         "documents": "~/Documents",
@@ -127,6 +128,8 @@ def parseWellKnownDirectory(name):
         "videos": "~/Videos",
     }.get(name, name)
     path = os.path.expanduser(path)
+    if not os.path.isdir(path):
+        path = os.path.expanduser("~")
     return path
 
 
