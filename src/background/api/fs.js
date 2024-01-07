@@ -59,21 +59,29 @@ const FSApi = {
                 // this._helperAppTipsExpire = 0;
                 let id = response.id;
                 if (!this.resolves[id]) return;
-                if (this.parts[id]) {
-                    response.data = this.parts[id].data + response.data;
-                    delete this.parts[id];
-                }
-                if (response.code == 206 && response.next_id) {
-                    this.parts[response.next_id] = response;
-                    this.resolves[response.next_id] = this.resolves[id];
-                } else {
-                    if (response.encode == 'json') {
-                        response.data = JSON.parse(response.data);
-                        delete response.encode;
+                try {
+                    if (this.parts[id]) {
+                        response.data = this.parts[id].data + response.data;
+                        delete this.parts[id];
                     }
-                    this.resolves[id](response);
+                    if (response.code == 206 && response.next_id) {
+                        this.parts[response.next_id] = response;
+                        this.resolves[response.next_id] = this.resolves[id];
+                    } else {
+                        if (response.encode == 'json') {
+                            response.data = JSON.parse(response.data);
+                            delete response.encode;
+                        }
+                        this.resolves[id](response);
+                    }
+                } catch (e) {
+                    console.warn(e);
+                    let message = { code: 400, data: "" + e };
+                    this.resolves[id](message);
+                    if (this.parts[id]) delete this.parts[id];
+                } finally {
+                    delete this.resolves[id];
                 }
-                delete this.resolves[id];
             });
         }
         return this._port;
@@ -632,6 +640,7 @@ const FSApi = {
         for (let id in this.resolves) {
             this.resolves[id](response);
             delete this.resolves[id];
+            if (this.parts[id]) delete this.parts[id];
         }
     },
     _constants: null,
