@@ -169,16 +169,17 @@ const FSApi = {
             }[message.action];
 
             let id = options.id || '';
+            let startIn = null;
             if (options.startIn && 'object' === typeof (options.startIn)) {
                 let handle = options.startIn;
                 if (handle.kind && handle._meta?.cpath) {
                     try {
                         let path = await this.t.parsePath(handle._meta.cpath);
                         if (handle.kind == FileSystemHandleKindEnum.FILE) {
-                            options.startIn = await this.t.dirname(path);
+                            startIn = await this.t.dirname(path);
                             options.initialfile = await this.t.basename(path);
                         } else {
-                            options.startIn = path;
+                            startIn = path;
                         }
                     } catch (e) {
                         console.warn(e);
@@ -187,18 +188,21 @@ const FSApi = {
                     // XXX
                 }
             }
-            if (!options.startIn) {
+            if (!startIn) {
                 let config = await util.getSiteConfig(origin, 'startIn', {});
                 if (config[id]?.path) {
-                    options.startIn = config[id].path;
+                    startIn = config[id].path;
+                } else if (options.startIn && 'string' === typeof options.startIn) {
+                    startIn = options.startIn;
                 } else if (Object.keys(config).length > 0) {
-                    options.startIn = Object.values(config).sort((a, b) => b.atime - a.atime)[0].path;
+                    startIn = Object.values(config).sort((a, b) => b.atime - a.atime)[0].path;
                 }
             }
-            if (options.startIn) {
+            if (startIn) {
                 // XXX: C:
-                options.startIn = options.startIn.replace(/^([a-z]:)$/i, '$1/');
+                startIn = startIn.replace(/^([a-z]:)$/i, '$1/');
             }
+            options.startIn = startIn;
             message.data = options;
             let response = await this.request(message);
             if (response.code == 200 && response.data) {
