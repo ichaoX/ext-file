@@ -685,7 +685,9 @@ const FSApi = {
         // XXX
         if (path === "/") return path;
         let separators = await this.separator(true);
-        return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+        let result = path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+        if (result === "" && path.startsWith("/")) result = "/";
+        return result;
     },
     async joinName(path, name) {
         await this.verifyName(name);

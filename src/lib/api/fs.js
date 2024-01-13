@@ -585,7 +585,9 @@ self.__fs_init = function (fs_options = {}) {
             // XXX
             if (path === "/") return path;
             let separators = await this.separator(true);
-            return path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+            let result = path.replace(new RegExp(`[${separators}][^${separators}]*$`), '');
+            if (result === "" && path.startsWith("/")) result = "/";
+            return result;
         },
         stringifyPath(path) {
             if (path && path.cdir) path = "ext-file://" + path.cdir + ":" + path.name;
