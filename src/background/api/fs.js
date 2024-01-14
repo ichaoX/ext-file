@@ -90,7 +90,11 @@ const FSApi = {
         await this.crypto.loadKey();
         let contentScriptOptions = await util.getSetting("content_script_match");
         await this.contentScriptsRegister(contentScriptOptions);
-        await Promise.all(['prompt_tab', 'app_tips'].map(async (k) => {
+        await Promise.all([
+            'prompt_tab',
+            'internal_file_picker',
+            'app_tips',
+        ].map(async (k) => {
             this.data.settings[k] = await util.getSetting(k);
         }));
     },
@@ -209,8 +213,10 @@ const FSApi = {
             }
             options.startIn = startIn;
             message.data = options;
-            let response = await this.request(message);
-            // TODO
+            let response = { code: 503, data: null };
+            if (this.t.data.settings.internal_file_picker != 'always') {
+                response = await this.request(message);
+            }
             if (response.code >= 500) {
                 let response1 = await this.request({
                     action: 'abspath',
@@ -246,6 +252,8 @@ const FSApi = {
                             };
                         },
                     });
+                } else if (!response.data) {
+                    response = response1;
                 }
             }
             if (response.code == 200 && response.data) {

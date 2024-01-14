@@ -7,6 +7,13 @@
     <link rel="shortcut icon" href="/icon.png">
     <title>File System Access Options</title>
     <style>
+        :root {
+            font-family: sans-serif;
+            font: message-box;
+            font-size: 100%;
+            scrollbar-gutter: stable;
+        }
+
         :target {
             background-color: lightyellow;
         }
@@ -27,8 +34,8 @@
             box-sizing: border-box;
         }
 
-        .section .section {
-            margin-bottom: 0.5rem;
+        .section[open] {
+            margin-bottom: 1.5rem;
         }
 
         summary {
@@ -137,6 +144,13 @@
         </details>
         <details id="ui" class="section ui">
             <summary>Accessibility</summary>
+            <label>
+                Open file picker in browser tab:
+                <select data-setting="internal_file_picker">
+                    <option value="auto">auto</option>
+                    <option value="always">always</option>
+                </select>
+            </label>
             <label>
                 Request permissions via a separate tab:
                 <select data-setting="prompt_tab">

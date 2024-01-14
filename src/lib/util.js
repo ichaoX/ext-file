@@ -100,6 +100,7 @@ let FS_CONFIG = {
         },
         code_editor: false,
         prompt_tab: 'auto',
+        internal_file_picker: 'auto',
         app_tips: true,
     },
     async getSetting(key, def = null, area = null) {
