@@ -289,16 +289,26 @@ self.__fs_init = function (fs_options = {}) {
     }), scope.FileSystemHandle?.prototype, true);
 
     let _FileSystemFileHandleProto = setProto(cloneIntoScope({
-        async getFile() {
-            await debugHandle(this, 'getFile');
+        async getFile(options) {
+            await debugHandle(this, 'getFile', options);
             let path = await tool.meta(this).path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
             let stat = await sendMessage('fs.stat', { path });
-            if (stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
+            let allowNonNative = !!options?._allowNonNative;
+            if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
             let cache = fileCache.get(path);
             // XXX
             let lastModified = Math.round(1000 * stat.mtime);
             if (!(cache && cache.lastModified == lastModified && cache.size == stat.size)) {
+                if (allowNonNative) {
+                    // TODO
+                    return {
+                        name: this.name,
+                        lastModified,
+                        size: stat.size,
+                        type: "",
+                    };
+                }
                 let blob = await sendMessage('fs.read', { path });
                 cache = new File([blob], this.name, { lastModified });
                 fileCache.set(path, cache);
@@ -785,6 +795,16 @@ self.__fs_init = function (fs_options = {}) {
         },
     };
 
+    if (fs_options.exportInternalTools) {
+        for (let k in tool) {
+            if (shareApi.hasOwnProperty(k)) continue;
+            if (k.startsWith('_')) continue;
+            if ('function' === typeof tool[k]) {
+                shareApi[k] = tool[k].bind(tool);
+            }
+        }
+    }
+
     for (let o of ['FileSystemHandle', 'FileSystemFileHandle', 'FileSystemDirectoryHandle', 'FileSystemWritableFileStream']) {
         if (scope[o]) {
             shareApi.nativeApi[o] = scope[o];
@@ -968,7 +988,7 @@ let FS_CONFIG = ${JSON.stringify(getConfig(null, {}))};
         }
     }
 
-    if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal)) {
+    if (!!getConfig('EXPOSE_NAMESPACE', fs_options.isExternal || fs_options.exportInternalTools)) {
         let shareApiName = getConfig('EXPOSE_NAMESPACE', '__FILE_SYSTEM_TOOLS__', 'string');
         getWrapped(scope)[shareApiName] = cloneIntoScope(shareApi);
     }

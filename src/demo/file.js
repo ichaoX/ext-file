@@ -78,8 +78,51 @@ document.body.addEventListener('click', async (event) => {
                 await readFile(fileHandle);
                 return;
             }
+            case 'openFiles': {
+                const r = await showOpenFilePicker({
+                    id: "demo",
+                    multiple: true,
+                    types: [
+                        {
+                            description: 'Text Files',
+                            accept: {
+                                'text/plain': ['.txt', '.text'],
+                                'text/html': ['.html', '.htm'],
+                            }
+                        },
+                        {
+                            description: 'Images',
+                            accept: {
+                                'image/*': ['.png', '.gif', '.jpeg', '.jpg'],
+                            }
+                        },
+                        {
+                            accept: {
+                                'image/svg+xml': '.svg',
+                            }
+                        },
+                        {
+                            accept: {
+                                'image/svg+xml': [],
+                            }
+                        },
+                        /*
+                        {
+                            accept: {
+                                'image/svg+xml': 'bad,'
+                            }
+                        },
+                        */
+                    ],
+                    excludeAcceptAllOption: true,
+                });
+                console.info(r);
+                [fileHandle] = r;
+                await readFile(fileHandle);
+                return;
+            }
             case 'saveAs': {
-                fileHandle = await showSaveFilePicker({ id: "demo2" });
+                fileHandle = await showSaveFilePicker({ id: "demo2", suggestedName: 'test.txt', });
                 await readFile(fileHandle);
                 return;
             }

@@ -14,18 +14,12 @@ import time
 import threading
 import traceback
 
-__version__ = '0.9.2'
+__version__ = '0.9.4'
 
 try:
-    from tkinter import Tk, filedialog
+    import queue
 except ImportError:
-    from Tkinter import Tk
-    import tkFileDialog as filedialog
-
-try:
-   import queue
-except ImportError:
-   import Queue as queue
+    import Queue as queue
 
 stdin = sys.stdin
 stdout = sys.stdout
@@ -115,7 +109,7 @@ def response(data, messageId, code=200):
             sendMessage(encodeMessage(message))
 
 
-def parseWellKnownDirectory(name):
+def parseWellKnownDirectory(name, verify=False):
     if not isinstance(name, basestring if 'basestring' in vars(__builtins__) else str):
         name = "documents"
     # XXX
@@ -130,6 +124,8 @@ def parseWellKnownDirectory(name):
     path = os.path.expanduser(path)
     if not os.path.isdir(path):
         path = os.path.expanduser("~")
+    if verify and not os.path.isdir(path):
+        path = os.path.abspath(".")
     return path
 
 
@@ -150,6 +146,7 @@ def parseTypes(types, excludeAcceptAllOption=False):
 pickerActions = ['showDirectoryPicker',
                  'showOpenFilePicker', 'showSaveFilePicker']
 root = None
+filedialog = None
 
 
 def task(message):
@@ -165,8 +162,14 @@ def task(message):
             'separator': os.sep,
         }
     elif action in pickerActions:
+        global filedialog
         global root
         if not root:
+            try:
+                from tkinter import Tk, filedialog
+            except ImportError:
+                from Tkinter import Tk
+                import tkFileDialog as filedialog
             root = Tk()
             root.withdraw()
             root.update()
@@ -236,6 +239,12 @@ def task(message):
         result = os.path.isdir(data.get('path'))
     elif action == 'exists':
         result = os.path.exists(data.get('path'))
+    elif action == 'abspath':
+        path = data.get('path')
+        if data.get('startIn', False):
+            result = parseWellKnownDirectory(path, True)
+        else:
+            result = os.path.abspath(path)
     elif action == 'stat':
         info = os.stat(data.get('path'))
         result = {

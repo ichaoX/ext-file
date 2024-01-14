@@ -8,10 +8,18 @@
     <title>Request Access</title>
     <script src="/lib/util.js"></script>
     <script src="/lib/enum.js"></script>
+    <script src="/lib/api/fs.js"></script>
+    <script src="./file-picker.js"></script>
     <script src="./prompt.js"></script>
     <style>
         :root {
-            font-size: 15px;
+            font-family: sans-serif;
+            font: message-box;
+            font-size: 100%;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
@@ -104,7 +112,21 @@
             border: none;
         }
 
+        .button-container>button:disabled {
+            opacity: 0.5;
+        }
+
+        .button-container>a {
+            margin: 4px 8px;
+            margin-top: 1.2em;
+            line-height: 32px;
+        }
+
         @media only screen and (max-width: 480px) {
+            .button-container>a {
+                margin: 0;
+            }
+
             .button-container>button {
                 width: 100%;
                 margin: 0.66em 0 0;
@@ -128,6 +150,212 @@
             background-color: #053e94;
         }
 
+        .file-picker.container {
+            margin: 0;
+            padding: 0 1rem 1rem 1rem;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 1000px;
+            max-width: 100vw;
+        }
+
+        .file-picker .button-container {
+            margin-top: 0;
+        }
+
+        .box {
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid gray;
+            display: flex;
+        }
+
+        .box>* {
+            border-radius: 0;
+        }
+
+        .box>*:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+
+        /* XXX */
+        .box>*:last-child {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .box>*+* {
+            border-left: 1px solid gray !important;
+        }
+
+        .box select,
+        .box input {
+            border: none;
+            padding: 0 10px;
+            height: 2rem;
+            width: 100%;
+        }
+
+        .box button {
+            aspect-ratio: 1 / 1;
+            border: none;
+            flex-shrink: 0;
+        }
+
+        .box button::before {
+            vertical-align: middle;
+        }
+
+        .icon::before {
+            font-family: "Lucida Sans Unicode", "Lucida Grande", "Arial Unicode MS", sans-serif;
+        }
+
+        .location .up::before {
+            /* content: "🡩"; */
+            content: "⬆";
+        }
+
+        .location .goto::before {
+            /* content: "⭮"; */
+            content: "↻";
+        }
+
+        .location input:focus+.goto::before {
+            /* content: "🡢"; */
+            content: "➔";
+        }
+
+        .box .clear::before {
+            content: "✕";
+        }
+
+        .select-items {
+            display: flex;
+            flex-flow: row wrap;
+            gap: 0 0.5rem;
+        }
+
+        .select-items .name {
+            flex: 2 1 400px;
+        }
+
+        .select-items .types {
+            flex: 1 1 200px;
+        }
+
+        [data-message-action="showDirectoryPicker"] .select-items .clear,
+        [data-message-action="showDirectoryPicker"] .select-items .types {
+            display: none;
+        }
+
+        .select-items input:read-only {
+            background-color: #ddd;
+        }
+
+        .file-list {
+            border: 1px solid gray;
+            border-radius: 4px;
+            height: 100vh;
+            flex-shrink: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            cursor: default;
+            margin-bottom: 0.5rem;
+        }
+
+        .list-header {
+            display: flex;
+            border-bottom: 1px solid gray;
+            scrollbar-gutter: stable;
+            overflow-y: auto;
+            flex-grow: 0;
+            flex-shrink: 0;
+        }
+
+        .list-header {
+            text-transform: capitalize;
+            background-color: rgba(207, 207, 216, .33);
+        }
+
+        .list-header>*:hover {
+            background-color: rgba(207, 207, 216, .66);
+        }
+
+        .list-header>*+* {
+            border-left: 1px solid gray;
+        }
+
+        .list-data {
+            overflow-y: scroll;
+            scrollbar-gutter: stable;
+            height: 100%;
+        }
+
+        .list-data:empty::before {
+            content: 'Empty';
+            opacity: 0.5;
+            text-align: center;
+            width: 100%;
+            display: block;
+            padding-top: 1rem;
+        }
+
+        .list-data.loading:empty::before {
+            content: 'Loading...';
+        }
+
+        .list-item:hover {
+            background-color: #eee;
+        }
+
+        .list-header,
+        .list-item {
+            display: grid;
+            grid-template-columns: 60% minmax(6rem, 15%) auto;
+            height: 2rem;
+            line-height: 2rem;
+        }
+
+        .list-header>*,
+        .list-item>* {
+            padding: 0 10px;
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .list-item>*:hover {
+            overflow-x: auto;
+            scrollbar-width: thin;
+            text-overflow: clip;
+        }
+
+        .list-item>*:empty::before {
+            content: '--';
+            opacity: 0.5;
+        }
+
+        .multiple .list-data.selected .list-item.directory,
+        .list-item.disabled {
+            opacity: 0.5;
+        }
+
+        .list-item.selected {
+            background-color: #0061e0;
+            color: rgb(251, 251, 254);
+        }
+
+        .list-item.directory {
+            color: darkblue;
+        }
+
+        .list-item.directory .name::after {
+            content: '/';
+        }
+
         @media (max-width: 700px) {
             .container {
                 margin: 0 auto;
@@ -138,7 +366,7 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container request-permission" style="display: none;">
         <div class="text-container">
             <h1 class="title">
                 Let site <span data-text="perm-mode">ACCESS</span> files?
@@ -156,6 +384,47 @@
             <button class="hide" data-action="block">Cancel (Less Prompts)</button>
             <button class="" autofocus data-action="cancel">Cancel</button>
             <button class="primary" data-action="authorize">Allow Access</button>
+        </div>
+    </div>
+    <div class="container file-picker" style="display: none;">
+        <div class="text-container">
+            <p>
+                <span data-text="title">
+                    <b data-text="perm-mode-detail">ACCESS</b> location for
+                    <b data-text="origin" title="Origin">Origin</b>
+                </span><span data-text="external" data-value="">, as requested
+                    by the browser extension with ID <b data-text="sender-id"></b></span>.
+            </p>
+        </div>
+        <div class="box location">
+            <button class="icon up" title="Up to higher level directory"></button>
+            <input placeholder="Location" title="Location" />
+            <button class="icon goto" title="Refresh"></button>
+        </div>
+        <div class="file-list">
+            <div class="list-header">
+                <div title="Name">name</div>
+                <div title="Size">size</div>
+                <div title="Modified">modified</div>
+            </div>
+            <div class="list-data"></div>
+        </div>
+        <div class="select-items">
+            <div class="box name">
+                <input name="name" readonly placeholder="Name" title="Name" />
+                <button class="icon clear" title="Clear Selected"></button>
+            </div>
+            <div class="box types">
+                <select name="types" title="File Types">
+                    <option value="">All Files</option>
+                </select>
+            </div>
+        </div>
+        <div class="button-container">
+            <a href="" target="_blank" data-action="viewTab">View Source Tab (<span
+                    data-text="tab-detail">...</span>)</a>
+            <button class="" autofocus data-action="cancel">Cancel</button>
+            <button class="primary" data-action="select">Select</button>
         </div>
     </div>
 </body>

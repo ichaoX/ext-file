@@ -162,11 +162,16 @@ const FSApi = {
 
             let options = message.data || {};
             options = Object.assign({}, options);
-            options.title = {
-                'showDirectoryPicker': `Select where ${originInfo} can ${options.mode || 'read'}`,
-                'showOpenFilePicker': `Open ${options.multiple ? 'files' : 'file'} for ${originInfo}`,
-                'showSaveFilePicker': `Save as file from ${originInfo}`,
+            let titleTemplate = {
+                'showDirectoryPicker': `Select where {origin} can {mode}`,
+                'showOpenFilePicker': `Open ${options.multiple ? 'files' : 'file'} for {origin}`,
+                'showSaveFilePicker': `Save as file from {origin}`,
             }[message.action];
+            options.title = titleTemplate.replace(/\{(mode|origin)\}/g, (match, name) => {
+                if (name == 'mode') return options.mode || 'read';
+                if (name == 'origin') return originInfo;
+                return name;
+            });
 
             let id = options.id || '';
             let startIn = null;
@@ -205,6 +210,44 @@ const FSApi = {
             options.startIn = startIn;
             message.data = options;
             let response = await this.request(message);
+            // TODO
+            if (response.code >= 500) {
+                let response1 = await this.request({
+                    action: 'abspath',
+                    data: {
+                        path: options.startIn,
+                        startIn: true,
+                    },
+                });
+                if (response1.code == 200) {
+                    message.data.startIn = response1.data;
+                    message.data.titleTemplate = titleTemplate;
+                    await this._makePrompt(message, sender, {
+                        type: 'file-picker',
+                        origin,
+                        makeResolves(resolve) {
+                            return {
+                                select: (r) => {
+                                    resolve(r);
+                                    return true;
+                                },
+                            };
+                        },
+                        onResolve(r) {
+                            response = {
+                                code: 200,
+                                data: r || '',
+                            };
+                        },
+                        onReject(e) {
+                            response = {
+                                code: 400,
+                                data: '' + e,
+                            };
+                        },
+                    });
+                }
+            }
             if (response.code == 200 && response.data) {
                 let path = await this.t.normalPath(Array.isArray(response.data) ? response.data[0] : response.data);
                 if (['showOpenFilePicker', 'showSaveFilePicker'].includes(message.action)) path = await this.t.dirname(path);
@@ -284,6 +327,51 @@ const FSApi = {
                 console.info('blockPrompt', promptKey);
                 return util.wrapResponse(PermissionStateEnum.PROMPT);
             }
+            return util.wrapResponse(await this._makePrompt(message, sender, {
+                type: 'request-permission',
+                origin,
+                getValue: async (end = false) => {
+                    let state = await this.t.queryPermission({
+                        path: data.path,
+                        mode: data.mode,
+                        origin,
+                    });
+                    if (end || state === PermissionStateEnum.GRANTED) return { done: true, data: PermissionStateEnum.GRANTED };
+                    // TODO blockPrompt
+                    return { done: false };
+                },
+                makeResolves: (resolve) => {
+                    return {
+                        authorize: async () => {
+                            try {
+                                await this.t.setPermission({
+                                    origin,
+                                    path: data.path,
+                                    mode: data.mode,
+                                    state: PermissionStateEnum.GRANTED,
+                                });
+                                return true;
+                            } finally {
+                                resolve();
+                            }
+                        },
+                        [isLimit ? 'block' : '_block']: () => {
+                            let promptData = limitPrompt.get(promptKey) || { lastTime: 0, blockTime: 0 };
+                            try {
+                                promptData.blockTime = Date.now();
+                                limitPrompt.set(promptKey, promptData);
+                                return true;
+                            } finally {
+                                resolve();
+                            }
+                        },
+                    };
+                },
+            }));
+        },
+        async _makePrompt(message, sender, options = {}) {
+            let origin = options.origin;
+            let getValue = options.getValue || ((end, value) => ({ done: end, data: value }));
             let url = browser.runtime.getURL("/view/prompt.html") + `?origin=${encodeURIComponent(origin)}`;
             let originPrompt = this.t.data.originPrompt;
             if (originPrompt[origin]) {
@@ -299,55 +387,29 @@ const FSApi = {
             }
             while (originPrompt[origin]) {
                 await originPrompt[origin].promise;
-                if (await this.t.queryPermission({
-                    path: data.path,
-                    mode: data.mode,
-                    origin,
-                }) === PermissionStateEnum.GRANTED) return util.wrapResponse(PermissionStateEnum.GRANTED);
-                // TODO blockPrompt
+                let { done, data } = await getValue();
+                if (done) return data;
             }
             let id = this.t.createId();
             let resolve;
             let viewTab = async () => {
                 return await browser.tabs.update(sender.tab.id, { active: true });
             };
-            let promise = new Promise(r => (resolve = () => {
+            let promise = new Promise(r => (resolve = (data) => {
                 if (originPrompt?.[origin].id == id) {
                     delete originPrompt[origin];
                 }
-                r();
+                r(data);
                 setTimeout(viewTab, 100);
             }));
             originPrompt[origin] = {
+                type: options.type,
                 id,
                 promise,
                 resolve,
                 message,
                 sender,
                 resolves: {
-                    authorize: async () => {
-                        try {
-                            await this.t.setPermission({
-                                origin,
-                                path: data.path,
-                                mode: data.mode,
-                                state: PermissionStateEnum.GRANTED,
-                            });
-                            return true;
-                        } finally {
-                            resolve();
-                        }
-                    },
-                    [isLimit ? 'block' : '_block']: () => {
-                        let promptData = limitPrompt.get(promptKey) || { lastTime: 0, blockTime: 0 };
-                        try {
-                            promptData.blockTime = Date.now();
-                            limitPrompt.set(promptKey, promptData);
-                            return true;
-                        } finally {
-                            resolve();
-                        }
-                    },
                     cancel: () => {
                         resolve();
                         return true;
@@ -356,6 +418,7 @@ const FSApi = {
                         viewTab();
                         return false;
                     },
+                    ...options.makeResolves(resolve),
                 },
             };
             let openTab = true;
@@ -368,21 +431,20 @@ const FSApi = {
                     console.warn(`tab removed "${tabOrigin}"!="${origin}"`);
                 }
             }
+            let result;
             try {
                 if (openTab) {
                     await new Promise((r) => setTimeout(r, 200));
                     await browser.tabs.create({ url, active: true });
                 }
-                await promise;
+                result = await promise;
+                if (options.onResolve) await options.onResolve(result);
             } catch (e) {
                 console.warn(e);
+                if (options.onReject) await options.onReject(e);
             } finally {
-                let state = await this.t.queryPermission({
-                    path: data.path,
-                    mode: data.mode,
-                    origin: origin,
-                });
-                return util.wrapResponse(state);
+                let { data } = await getValue(true, result);
+                return data;
             }
         },
         async setPermission(message) {
@@ -400,6 +462,7 @@ const FSApi = {
             if (p) {
                 result = {
                     id: p.id,
+                    type: p.type,
                     message: p.message,
                     sender: p.sender,
                     resolveKeys: Object.keys(p.resolves),
@@ -411,7 +474,7 @@ const FSApi = {
             let data = message.data || {};
             let p = this.t.data.originPrompt[data.origin];
             if (!(p && data.id === p.id)) return util.wrapResponse('Expired', 410);
-            let autoClose = await p.resolves[data.key]();
+            let autoClose = await p.resolves[data.key](data.data);
             if (autoClose && sender && sender.frameId == 0 && sender.url.startsWith(browser.runtime.getURL('/')) && sender.tab) {
                 setTimeout(async () => {
                     try {
