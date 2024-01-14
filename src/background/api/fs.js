@@ -358,9 +358,21 @@ const FSApi = {
                     },
                 },
             };
-            await new Promise((r) => setTimeout(r, 200));
+            let openTab = true;
+            // XXX: onRemoved
+            if (sender.tab && sender.tab.id > 0) {
+                let tabOrigin = Tab.getFrameOrigin(sender.tab.id);
+                if (tabOrigin !== 'null' && tabOrigin !== origin) {
+                    openTab = false;
+                    resolve();
+                    console.warn(`tab removed "${tabOrigin}"!="${origin}"`);
+                }
+            }
             try {
-                await browser.tabs.create({ url, active: true });
+                if (openTab) {
+                    await new Promise((r) => setTimeout(r, 200));
+                    await browser.tabs.create({ url, active: true });
+                }
                 await promise;
             } catch (e) {
                 console.warn(e);

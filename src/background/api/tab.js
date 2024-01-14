@@ -55,6 +55,10 @@ const Tab = {
     onRemoved(tabId) {
         delete this.originMap[tabId];
     },
+    getFrameOrigin(tabId, frameId = 0) {
+        if (!this.originMap[tabId]) return false;
+        return this.originMap[tabId][frameId];
+    },
     originThrotte: {},
     onOriginUpdated(origin, delay = 500) {
         if (delay && this.originThrotte[origin]) return;
