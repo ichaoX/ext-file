@@ -309,7 +309,7 @@ self.__fs_init = function (fs_options = {}) {
             await debugHandle(this, 'getFile', options);
             let path = await tool.meta(this).path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
-            let stat = await sendMessage('fs.stat', { path });
+            let stat = await tool._stat(path);
             let allowNonNative = !!options?._allowNonNative;
             if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw createError('NotReadableError', { reason: 'the file size exceeded the allowed limit' });
             let cache = fileCache.get(path);
@@ -325,8 +325,8 @@ self.__fs_init = function (fs_options = {}) {
                         type: "",
                     };
                 }
-                let blob = await sendMessage('fs.read', { path });
-                cache = new File([blob], this.name, { lastModified });
+                let blobParts = await tool._read(path, { stat });
+                cache = new File(blobParts, this.name, { lastModified });
                 fileCache.set(path, cache);
             }
             return cache;
@@ -697,6 +697,46 @@ self.__fs_init = function (fs_options = {}) {
         async _getKind(path) {
             let kind = await sendMessage('fs.getKind', { path });
             return kind;
+        },
+        async _stat(path) {
+            return await sendMessage('fs.stat', { path });
+        },
+        async _read(path, options = {}) {
+            let stat0 = options.stat;
+            let chunk0 = getConfig('FILE_CHUNK_SIZE', 30 * 1024 ** 2, "number");
+            let chunk = (stat0 && chunk0 == stat0.size) ? chunk0 + 1 : chunk0;
+            let blob = await sendMessage('fs.read', { path, size: chunk });
+            if (blob.size != chunk) {
+                return [blob];
+            }
+            if (chunk > chunk0) blob = blob.slice(0, chunk0);
+            let blobParts = [blob];
+            let offset = blob.size;
+            while (true) {
+                let stat = await this._stat(path);
+                if (!stat0) stat0 = stat;
+                if (stat0.size != stat.size || stat0.mtime != stat.mtime) {
+                    debug(path, stat0, stat);
+                    throw createError('NotReadableError', { reason: 'the file has been modified' });
+                }
+                chunk = stat.size == offset + chunk0 ? chunk0 + 1 : chunk0;
+                blob = await sendMessage('fs.read', {
+                    path,
+                    mode: 'chunk',
+                    offset,
+                    size: chunk,
+                });
+                blobParts.push(blob);
+                offset += blob.size;
+                debug(path, `${offset}/${stat.size}`, blob.size);
+                if (stat.size <= offset || blob.size != chunk) {
+                    if (stat.size != offset) {
+                        throw createError('NotReadableError', { reason: 'the file has been modified' });
+                    }
+                    break;
+                }
+            }
+            return blobParts;
         },
         async remove(meta, options) {
             let path = meta;

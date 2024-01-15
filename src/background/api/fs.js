@@ -119,8 +119,18 @@ const FSApi = {
                 }
             });
         },
+        _FEATURE_UNAVAILABLE: util.wrapResponse('Please update the helper app to use this feature.', 501),
+        _406: util.wrapResponse('Not Acceptable', 406),
         async read(message) {
             let data = message.data;
+            if (data.mode) {
+                if (data.mode === 'chunk') {
+                    if (!await this.t.isFeatureAvailable('read_chunk')) return this._FEATURE_UNAVAILABLE;
+                    delete data.mode;
+                } else {
+                    return this._406;
+                }
+            }
             let encoded = !!data.encode;
             if (!encoded) {
                 data.encode = 'base64';
@@ -729,6 +739,7 @@ const FSApi = {
             delete this.resolves[id];
             if (this.parts[id]) delete this.parts[id];
         }
+        this._constants = null;
     },
     _constants: null,
     async constants(reload = false) {
@@ -751,6 +762,16 @@ const FSApi = {
         let separator = (await this.constants()).separator;
         if (!regexp) return separator;
         return `/${separator === '\\' ? '\\\\' : ''}`;
+    },
+    async isFeatureAvailable(feature) {
+        let v = (await this.constants()).version || '0.0.0';
+        let pad = (v) => v.replace(/\d+/g, (d) => d.padStart(6, '0'));
+        switch (feature) {
+            case 'read_chunk': {
+                return pad(v) >= pad('0.9.4');
+            }
+        }
+        return false;
     },
     async normalPath(path) {
         path = path || '';

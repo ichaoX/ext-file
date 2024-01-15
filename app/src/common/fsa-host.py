@@ -253,7 +253,10 @@ def task(message):
         }
     elif action == 'read':
         with open(data.get('path'), data.get('mode', 'rb')) as f:
-            result = f.read()
+            offset = data.get('offset')
+            if offset:
+                f.seek(offset)
+            result = f.read(data.get('size', -1))
             if data.get('encode') == 'base64':
                 result = base64.b64encode(result)
     elif action == 'write':
