@@ -60,13 +60,29 @@ self.__fs_init = function (fs_options = {}) {
     //error
     const TypeError = scope.TypeError;
     const DOMException = scope.DOMException;
-
-    const NotAllowedError = new DOMException('The request is not allowed by the user agent or the platform in the current context.', 'NotAllowedError');
-    const NotFoundError = new DOMException('A requested file or directory could not be found at the time an operation was processed.', 'NotFoundError');
-    const InvalidModificationError = new DOMException('The object can not be modified in this way.', 'InvalidModificationError');
-    const TypeMismatchError = new DOMException('The path supplied exists, but was not an entry of requested type.', 'TypeMismatchError');
-    const AbortError = new DOMException('The user aborted a request.', 'AbortError');
-    const SecurityError = new DOMException('Must be handling a user gesture to show a file picker.', 'SecurityError');
+    const createError = (name, message = null, vars = null) => {
+        if (message && 'object' === typeof message) {
+            vars = message;
+            message = null;
+        }
+        if (!message) {
+            message = {
+                NotAllowedError: 'The request is not allowed by the user agent or the platform in the current context.',
+                NotFoundError: 'A requested file or directory could not be found at the time an operation was processed.',
+                InvalidModificationError: 'The object can not be modified in this way.',
+                TypeMismatchError: 'The path supplied exists, but was not an entry of requested type.',
+                AbortError: 'The user aborted a request.',
+                SecurityError: 'Must be handling a user gesture to show a file picker.',
+                NotReadableError: 'The requested file could not be read{reason?=, $1}.',
+            }[name];
+        }
+        message = message.replace(/\{([^\?]+)\?=([^}]+)\}/g, (match, group, pattern) => {
+            let value = vars && vars[group];
+            if (!value) return '';
+            return pattern.replace(/\$1/g, value);
+        });
+        return new DOMException(message, name);
+    };
 
     // debug('fs start');
 
@@ -184,7 +200,7 @@ self.__fs_init = function (fs_options = {}) {
         let close = async function () {
             await debugHandle(handle, 'FileSystemWritableFileStream.close');
             let path = await tool.meta(handle).path();
-            if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             if (![StreamStateEnum.WRITABLE, StreamStateEnum.ERRORING].includes(state)) throw new TypeError(`Cannot close a ${state.toUpperCase()} writable stream`);
             await sendMessage('fs.write', { path, data: cache });
             state = state === StreamStateEnum.ERRORING ? StreamStateEnum.ERRORED : StreamStateEnum.CLOSED;
@@ -266,15 +282,15 @@ self.__fs_init = function (fs_options = {}) {
                 destination = null;
             }
             let newPath = await tool.joinName(newDirectory, name);
-            if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             if ('' === await tool.diffPath(path, newPath)) return;
-            if (await tool.requestPermission({ path: newPath, root: destinationMeta?.root }, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            if (!await sendMessage('fs.isdir', { path: newDirectory })) throw NotFoundError;
+            if (await tool.requestPermission({ path: newPath, root: destinationMeta?.root }, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+            if (!await sendMessage('fs.isdir', { path: newDirectory })) throw createError('NotFoundError');
             // if (await sendMessage('fs.exists', { path: newPath })) throw InvalidModificationError;
             try {
                 await sendMessage('fs.mv', { src: path, dst: newPath, overwrite: false });
             } catch (e) {
-                throw InvalidModificationError;
+                throw createError('InvalidModificationError');
             }
             this._meta.cpath = await tool.cpath(newPath);
             this.name = name;
@@ -292,10 +308,10 @@ self.__fs_init = function (fs_options = {}) {
         async getFile(options) {
             await debugHandle(this, 'getFile', options);
             let path = await tool.meta(this).path();
-            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             let stat = await sendMessage('fs.stat', { path });
             let allowNonNative = !!options?._allowNonNative;
-            if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw new DOMException(`The requested file could not be read, the file size exceeded the allowed limit.`, 'NotReadableError');
+            if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw createError('NotReadableError', { reason: 'the file size exceeded the allowed limit' });
             let cache = fileCache.get(path);
             // XXX
             let lastModified = Math.round(1000 * stat.mtime);
@@ -318,7 +334,7 @@ self.__fs_init = function (fs_options = {}) {
         async createWritable(options) {
             await debugHandle(this, 'createWritable', options);
             let meta = tool.meta(this);
-            if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             return await createFileSystemWritableFileStream(getWrapped(this), options);
         },
     }), _FileSystemHandleProto);
@@ -368,7 +384,7 @@ self.__fs_init = function (fs_options = {}) {
                     yield result;
                 } catch (e) {
                     // XXX: broken symbolic link
-                    if (e instanceof DOMException && e.name === NotFoundError.name) {
+                    if (e instanceof DOMException && e.name === createError('NotFoundError').name) {
                         warn(name, e);
                         continue;
                     }
@@ -437,10 +453,10 @@ self.__fs_init = function (fs_options = {}) {
         let root = await meta.root();
         options = options || {};
         let path = await tool.joinName(dir, name);
-        if (kind !== null && (options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+        if (kind !== null && (options.create ? await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) : await tool.queryPermission(path)) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
         if (realKind === null) realKind = await tool._getKind(path);
         if (kind && realKind && realKind !== kind) {
-            throw TypeMismatchError;
+            throw createError('TypeMismatchError');
         } else if (kind && options.create) {
             switch (kind) {
                 case FileSystemHandleKindEnum.FILE:
@@ -450,11 +466,11 @@ self.__fs_init = function (fs_options = {}) {
                     await sendMessage('fs.mkdir', { path });
                     break;
                 default:
-                    throw TypeMismatchError;
+                    throw createError('TypeMismatchError');
             }
             realKind = kind;
         } else if (!realKind) {
-            throw NotFoundError;
+            throw createError('NotFoundError');
         }
         return await createFileSystemHandle([dir, name], realKind, root);
     };
@@ -490,9 +506,9 @@ self.__fs_init = function (fs_options = {}) {
             exportIntoScope('showOpenFilePicker', async function (options) {
                 debug('showOpenFilePicker', options);
                 // XXX
-                if (document.visibilityState === 'hidden') throw SecurityError;
+                if (document.visibilityState === 'hidden') throw createError('SecurityError');
                 let paths = await sendMessage('fs.showOpenFilePicker', options);
-                if (!paths) throw AbortError;
+                if (!paths) throw createError('AbortError');
                 let result = cloneIntoScope([]);
                 for (let path of paths) {
                     let handle = await createFileSystemHandle(path);
@@ -507,11 +523,11 @@ self.__fs_init = function (fs_options = {}) {
             exportIntoScope('showDirectoryPicker', async function (options) {
                 debug('showDirectoryPicker', options);
                 // XXX
-                if (document.visibilityState === 'hidden') throw SecurityError;
+                if (document.visibilityState === 'hidden') throw createError('SecurityError');
                 options = options || {};
                 let path = await sendMessage('fs.showDirectoryPicker', options);
-                if (!path) throw AbortError;
-                if (await tool.requestPermission(path, options.mode) !== PermissionStateEnum.GRANTED) throw AbortError;
+                if (!path) throw createError('AbortError');
+                if (await tool.requestPermission(path, options.mode) !== PermissionStateEnum.GRANTED) throw createError('AbortError');
                 let result = await createFileSystemHandle(path, FileSystemHandleKindEnum.DIRECTORY);
                 return result;
             });
@@ -521,17 +537,17 @@ self.__fs_init = function (fs_options = {}) {
             exportIntoScope('showSaveFilePicker', async function (options) {
                 debug('showSaveFilePicker', options);
                 // XXX
-                if (document.visibilityState === 'hidden') throw SecurityError;
+                if (document.visibilityState === 'hidden') throw createError('SecurityError');
                 options = options || {};
                 let path = await sendMessage('fs.showSaveFilePicker', options);
-                if (!path) throw AbortError;
+                if (!path) throw createError('AbortError');
                 await tool.setPermission(path, PermissionStateEnum.GRANTED, FileSystemPermissionModeEnum.READWRITE);
                 let kind = await tool._getKind(path);
                 if (kind === FileSystemHandleKindEnum.FILE) {
                     await sendMessage('fs.write', { path, data: new Blob([]) });
                 } else {
                     if (kind) {
-                        throw TypeMismatchError;
+                        throw createError('TypeMismatchError');
                     } else {
                         await sendMessage('fs.touch', { path });
                     }
@@ -670,12 +686,12 @@ self.__fs_init = function (fs_options = {}) {
             return state;
         },
         async scandir(path, kind = false) {
-            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             let list = await sendMessage('fs.scandir', { path, kind });
             return list;
         },
         async getKind(path) {
-            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
+            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             return await this._getKind(path);
         },
         async _getKind(path) {
@@ -691,12 +707,12 @@ self.__fs_init = function (fs_options = {}) {
             }
             if (path) path = await this.normalPath(path);
             options = options || {};
-            if (await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw NotAllowedError;
-            if (!await sendMessage('fs.exists', { path })) throw NotFoundError;
+            if (await tool.requestPermission({ path, root }, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+            if (!await sendMessage('fs.exists', { path })) throw createError('NotFoundError');
             try {
                 await sendMessage('fs.rm', Object.assign(Object.assign({}, options), { path }));
             } catch (e) {
-                throw InvalidModificationError;
+                throw createError('InvalidModificationError');
             }
             fileCache.delete(path);
         },
