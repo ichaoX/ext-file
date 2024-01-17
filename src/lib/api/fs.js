@@ -6,7 +6,11 @@ self.__fs_init = function (fs_options = {}) {
         if ('undefined' !== typeof FS_CONFIG && FS_CONFIG) {
             if (name === null) {
                 return FS_CONFIG;
-            } else if (FS_CONFIG.hasOwnProperty(name) && (!type || type === typeof FS_CONFIG[name])) {
+            } else if (FS_CONFIG.hasOwnProperty(name) && (
+                Array.isArray(type)
+                    ? type.includes(FS_CONFIG[name])
+                    : (!type || type === typeof FS_CONFIG[name])
+            )) {
                 return FS_CONFIG[name];
             }
         }
@@ -316,8 +320,15 @@ self.__fs_init = function (fs_options = {}) {
             let path = await meta.path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             let stat = await tool._stat(path);
-            let allowNonNative = !!options?._allowNonNative;
-            if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw createError('NotReadableError', { reason: 'the file size exceeded the allowed limit' });
+            let nonNativePreference = getConfig('NON_NATIVE_FILE', 'never', ['never', 'auto', 'always']);
+            let allowNonNative = nonNativePreference === 'always' || !!options?._allowNonNative;
+            if (!allowNonNative && stat.size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) {
+                if (nonNativePreference === 'auto') {
+                    allowNonNative = true;
+                } else {
+                    throw createError('NotReadableError', { reason: 'the file size exceeded the allowed limit' });
+                }
+            }
             let cache = fileCache.get(path);
             // XXX
             let lastModified = Math.round(1000 * stat.mtime);
