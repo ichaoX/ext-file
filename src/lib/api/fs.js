@@ -23,14 +23,16 @@ self.__fs_init = function (fs_options = {}) {
     const warn = fs_options.warn || console.warn.bind(console);
     let debugHandle = async (handle, ...args) => {
         if (!getConfig('DEBUG_ENABLED')) return;
-        let path;
+        let path, meta;
         switch (typeof handle) {
             case 'function':
                 path = await handle();
                 break;
-            case 'object':
-                path = await tool.meta(handle).path();
+            case 'object': {
+                meta = tool.meta(handle);
+                path = await meta.path();
                 break;
+            }
             case 'string':
                 path = handle;
                 break;
@@ -40,6 +42,9 @@ self.__fs_init = function (fs_options = {}) {
                 path = '…/' + await tool.basename(path);
             } catch (e) {
             }
+        }
+        if ('string' === typeof path && meta && meta.offset !== undefined) {
+            path = `${path}:${meta.offset}+${meta.size}`;
         }
         debug(`%c${path.replace(/%/g, '%%')}`, 'text-decoration: underline;', ...args);
     }
@@ -307,7 +312,8 @@ self.__fs_init = function (fs_options = {}) {
     let _FileSystemFileHandleProto = setProto(cloneIntoScope({
         async getFile(options) {
             await debugHandle(this, 'getFile', options);
-            let path = await tool.meta(this).path();
+            let meta = tool.meta(this);
+            let path = await meta.path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             let stat = await tool._stat(path);
             let allowNonNative = !!options?._allowNonNative;
@@ -317,13 +323,12 @@ self.__fs_init = function (fs_options = {}) {
             let lastModified = Math.round(1000 * stat.mtime);
             if (!(cache && cache.lastModified == lastModified && cache.size == stat.size)) {
                 if (allowNonNative) {
-                    // TODO
-                    return {
+                    return createBlob({
                         name: this.name,
                         lastModified,
                         size: stat.size,
-                        type: "",
-                    };
+                        cpath: meta.cpath,
+                    });
                 }
                 let blobParts = await tool._read(path, { stat });
                 cache = new File(blobParts, this.name, { lastModified });
@@ -421,6 +426,117 @@ self.__fs_init = function (fs_options = {}) {
         },
     }), _FileSystemHandleProto);
 
+    let _BlobProto = cloneIntoScope({
+        slice(start, end, contentType) {
+            debugHandle(this, 'blob.slice', start, end, contentType);
+            let meta = this._meta;
+            if (!meta || !meta.cpath) throw new TypeError('Invalid data');
+            start = Math.min(meta.size, parseInt(start) || 0);
+            if (start < 0) start = Math.max(0, meta.size + start);
+            end = Math.min(meta.size, end !== undefined ? parseInt(end) || 0 : meta.size);
+            if (end < 0) end = Math.max(0, meta.size + end);
+            if (end < start) end = start;
+            return createBlob({
+                type: contentType || '',
+                cpath: meta.cpath,
+                offset: (meta.offset || 0) + start,
+                size: end - start,
+            });
+        },
+        async blob(options = {}) {
+            await debugHandle(this, 'blob.blob');
+            let meta = tool.meta(this);
+            let path = await meta.path();
+            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+            let size = meta.size;
+            if (size > getConfig('FILE_SIZE_LIMIT', Infinity, "number")) throw createError('NotReadableError', { reason: 'the blob size exceeded the allowed limit' });
+            let blobParts = await tool._read(path, {
+                offset: meta.offset || 0,
+                size,
+            });
+            return new scope.Blob(blobParts, {
+                type: meta.type,
+                ...options,
+            });
+        },
+        async arrayBuffer() {
+            // XXX
+            let result = await (await getWrapped(this).blob()).arrayBuffer();
+            return result;
+        },
+        async text() {
+            let result = await (await getWrapped(this).blob()).text();
+            return result;
+        },
+        stream() {
+            debugHandle(this, 'blob.stream');
+            const blob = this;
+            const meta = tool.meta(blob);
+            let path;
+            let offset = 0;
+            let chunk = getConfig('FILE_CHUNK_SIZE', 30 * 1024 ** 2, "number");
+            let result = new scope.ReadableStream(cloneIntoScope({
+                async start(controller) {
+                    path = await meta.path();
+                    offset = meta.offset || 0;
+                    if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                },
+                async pull(controller) {
+                    // FIX: Permission denied to access property "then"
+                    controller = getWrapped(controller) || controller;
+                    await debugHandle(blob, 'blob.stream.pull', offset);
+                    // XXX
+                    if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                    let size = Math.min(chunk, meta.offset + meta.size - offset);
+                    let blobParts = await tool._read(path, { offset, size });
+                    let data = new scope.Blob(blobParts);
+                    if (!data.size) {
+                        controller.close();
+                        return;
+                    }
+                    offset += data.size;
+                    controller.enqueue(new scope.Uint8Array(await data.arrayBuffer()));
+                },
+            }));
+            return result;
+        },
+    });
+
+    let _FileProto = setProto(cloneIntoScope({
+    }), _BlobProto);
+
+    let defGetters = (o, props, options = {}) => {
+        let desc = {};
+        for (let k in props) {
+            desc[k] = {
+                configurable: true,
+                ...options,
+                get() {
+                    return props[k].call(this);
+                },
+            };
+        }
+        return Object.defineProperties(getWrapped(o) || o, getWrapped(cloneIntoScope(desc)));
+    };
+
+    defGetters(_BlobProto, {
+        size() {
+            return this._meta?.size || 0;
+        },
+        type() {
+            return this._meta?.type || '';
+        },
+    });
+
+    defGetters(_FileProto, {
+        name() {
+            return this._meta?.name || '';
+        },
+        lastModified() {
+            return this._meta?.lastModified || 0;
+        },
+    });
+
     let createFileSystemHandle = async (path, kind = FileSystemHandleKindEnum.FILE, root = null) => {
         let name = null;
         let dir = null;
@@ -473,6 +589,17 @@ self.__fs_init = function (fs_options = {}) {
             throw createError('NotFoundError');
         }
         return await createFileSystemHandle([dir, name], realKind, root);
+    };
+
+    let createBlob = (meta = {}) => {
+        meta = Object.assign({}, meta);
+        if (!meta.offset) meta.offset = 0;
+        meta._object = 'Blob';
+        if ('string' === typeof meta.name) {
+            meta._object = 'File';
+            if ('number' != typeof meta.lastModified) meta.lastModified = Date.now();
+        }
+        return tool.parseBlob(cloneIntoScope({ _meta: meta }));
     };
 
     let concurrentGuard = (func, cacheTimeout = 0) => {
@@ -702,16 +829,31 @@ self.__fs_init = function (fs_options = {}) {
             return await sendMessage('fs.stat', { path });
         },
         async _read(path, options = {}) {
+            let offset = options.offset || 0;
+            let offset0 = offset;
+            let limit = 'number' === typeof options.size ? options.size : null;
+            if (limit === 0) return [];
             let stat0 = options.stat;
             let chunk0 = getConfig('FILE_CHUNK_SIZE', 30 * 1024 ** 2, "number");
             let chunk = (stat0 && chunk0 == stat0.size) ? chunk0 + 1 : chunk0;
-            let blob = await sendMessage('fs.read', { path, size: chunk });
-            if (blob.size != chunk) {
+            let blob;
+            if (offset > 0 || limit !== null) {
+                if (limit !== null && limit <= chunk) chunk = limit;
+                blob = await sendMessage('fs.read', {
+                    path,
+                    mode: 'chunk',
+                    offset,
+                    size: chunk,
+                });
+            } else {
+                blob = await sendMessage('fs.read', { path, size: chunk });
+            }
+            if (blob.size != chunk || chunk === limit) {
                 return [blob];
             }
             if (chunk > chunk0) blob = blob.slice(0, chunk0);
             let blobParts = [blob];
-            let offset = blob.size;
+            offset += blob.size;
             while (true) {
                 let stat = await this._stat(path);
                 if (!stat0) stat0 = stat;
@@ -719,6 +861,7 @@ self.__fs_init = function (fs_options = {}) {
                     debug(path, stat0, stat);
                     throw createError('NotReadableError', { reason: 'the file has been modified' });
                 }
+                if (limit === null || offset0 + limit > stat.size) limit = Math.max(0, stat.size - offset0);
                 chunk = stat.size == offset + chunk0 ? chunk0 + 1 : chunk0;
                 blob = await sendMessage('fs.read', {
                     path,
@@ -728,10 +871,10 @@ self.__fs_init = function (fs_options = {}) {
                 });
                 blobParts.push(blob);
                 offset += blob.size;
-                debug(path, `${offset}/${stat.size}`, blob.size);
-                if (stat.size <= offset || blob.size != chunk) {
-                    if (stat.size != offset) {
-                        throw createError('NotReadableError', { reason: 'the file has been modified' });
+                debug(path, `${offset}/${offset0 + limit}`, blob.size);
+                if (offset0 + limit <= offset || blob.size != chunk) {
+                    if (offset0 + limit != offset) {
+                        throw createError('NotReadableError', { reason: `the file has been modified` });
                     }
                     break;
                 }
@@ -829,6 +972,7 @@ self.__fs_init = function (fs_options = {}) {
             let croot = meta?.croot;
             let _path, _root;
             return {
+                ...meta,
                 cpath,
                 croot,
                 async path() {
@@ -852,6 +996,14 @@ self.__fs_init = function (fs_options = {}) {
             }
             return setProto(handle, proto);
         },
+        parseBlob(data) {
+            let proto;
+            if (!(data?._meta && 'function' != typeof data.arrayBuffer && (proto = {
+                Blob: _BlobProto,
+                File: _FileProto,
+            }[data._meta._object || '']))) return data;
+            return setProto(data, proto);
+        },
     };
 
     tool.separator = concurrentGuard(tool.separator);
@@ -864,6 +1016,7 @@ self.__fs_init = function (fs_options = {}) {
         isNativeSupported,
         nativeApi: {},
         parseHandle: tool.parseHandle,
+        parseBlob: tool.parseBlob,
         async getEnv(options = {}) {
             return sendMessage('fs.getEnv', options);
         },
