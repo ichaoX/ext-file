@@ -156,15 +156,49 @@ self.__fs_init = function (fs_options = {}) {
     let createFileSystemWritableFileStream = async (handle, options) => {
         options = options || {};
         // XXX tmp file
-        let cache;
+        let meta = tool.meta(handle);
+        let path = await meta.path();
         let state = StreamStateEnum.WRITABLE;
         let seekOffset = 0;
-        if (options.keepExistingData) {
-            let file = await handle.getFile();
-            cache = new Blob([await file.arrayBuffer()]);
-        } else {
-            cache = new Blob([]);
-        }
+        let writeBufferArea = 'memory';
+        let writer = {
+            memory: {
+                cache: null,
+                async start() {
+                    if (options.keepExistingData) {
+                        let file = await handle.getFile();
+                        this.cache = new Blob([await file.arrayBuffer()]);
+                    } else {
+                        this.cache = new Blob([]);
+                    }
+                },
+                async write(position, data) {
+                    let size = this.cache.size;
+                    if (position > size) this.cache = new Blob([this.cache, new Uint8Array(position - size)]);
+                    this.cache = new Blob([this.cache.slice(0, position), data, this.cache.slice(position + data.size)]);
+                },
+                async truncate(size) {
+                    let size0 = this.cache.size;
+                    if (size < size0) {
+                        this.cache = this.cache.slice(0, size);
+                    } else if (size > size0) {
+                        this.cache = new Blob([this.cache, new Uint8Array(size - size0)]);
+                    }
+                },
+                async close() {
+                    const data = this.cache;
+                    if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                    await tool._write(path, data);
+                    this.cache = null;
+                },
+                async abort() {
+                    this.cache = null;
+                },
+            },
+        }[writeBufferArea];
+
+        if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+        await writer.start();
         let stream = {
             async seek(position) {
                 await debugHandle(handle, 'FileSystemWritableFileStream.seek', position);
@@ -185,8 +219,7 @@ self.__fs_init = function (fs_options = {}) {
                         if (data.data === undefined) throw new DOMException(`write requires a data argument`, 'SyntaxError')
                         let writePosition = data.position !== undefined ? Math.max(0, parseInt(data.position) || 0) : seekOffset;
                         let chunk = new Blob([data.data]);
-                        if (writePosition > cache.size) cache = new Blob([cache, new Uint8Array(writePosition - cache.size)]);
-                        cache = new Blob([cache.slice(0, writePosition), chunk, cache.slice(writePosition + chunk.size)]);
+                        await writer.write(writePosition, chunk);
                         // seekOffset += chunk.size;
                         seekOffset = writePosition + chunk.size;
                         break;
@@ -197,8 +230,7 @@ self.__fs_init = function (fs_options = {}) {
                     case WriteCommandTypeEnum.TRUNCATE:
                         if (data.size === undefined) throw new DOMException(`truncate requires a size argument`, 'SyntaxError')
                         let size = Math.max(0, parseInt(data.size) || 0);
-                        if (size < cache.size) cache = cache.slice(0, size);
-                        if (size > cache.size) cache = new Blob([cache, new Uint8Array(size - cache.size)]);
+                        await writer.truncate(size);
                         if (size < seekOffset) seekOffset = size;
                         break;
                     default:
@@ -208,12 +240,9 @@ self.__fs_init = function (fs_options = {}) {
         };
         let close = async function () {
             await debugHandle(handle, 'FileSystemWritableFileStream.close');
-            let path = await tool.meta(handle).path();
-            if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             if (![StreamStateEnum.WRITABLE, StreamStateEnum.ERRORING].includes(state)) throw new TypeError(`Cannot close a ${state.toUpperCase()} writable stream`);
-            await tool._write(path, cache);
+            await writer.close();
             state = state === StreamStateEnum.ERRORING ? StreamStateEnum.ERRORED : StreamStateEnum.CLOSED;
-            cache = null;
         };
         // XXX
         let abort = async function (reason) {
@@ -221,7 +250,7 @@ self.__fs_init = function (fs_options = {}) {
             if (![StreamStateEnum.WRITABLE, StreamStateEnum.ERRORING].includes(state)) return;
             if (state === StreamStateEnum.WRITABLE) state = StreamStateEnum.ERRORING;
             state = StreamStateEnum.ERRORED;
-            cache = null;
+            await writer.abort();
         };
         if (scope.WritableStream) {
             let fsWritableStream = new scope.WritableStream(cloneIntoScope({
@@ -349,8 +378,6 @@ self.__fs_init = function (fs_options = {}) {
         },
         async createWritable(options) {
             await debugHandle(this, 'createWritable', options);
-            let meta = tool.meta(this);
-            if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             return await createFileSystemWritableFileStream(getWrapped(this), options);
         },
     }), _FileSystemHandleProto);
