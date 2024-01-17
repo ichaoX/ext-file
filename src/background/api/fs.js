@@ -142,6 +142,18 @@ const FSApi = {
         },
         async write(message) {
             let data = message.data;
+            if (data.mode) {
+                if (['new', 'chunk', 'append'].includes(data.mode)) {
+                    if (!await this.t.isFeatureAvailable(`write_${data.mode}`)) return this._FEATURE_UNAVAILABLE;
+                    data.mode = {
+                        new: 'wb',
+                        chunk: 'r+b',
+                        append: 'ab',
+                    }[data.mode];
+                } else {
+                    return this._406;
+                }
+            }
             if (!data.encode && data.data) {
                 data.data = await util.base64Encode(data.data);
                 data.encode = 'base64';
@@ -767,6 +779,9 @@ const FSApi = {
         let v = (await this.constants()).version || '0.0.0';
         let pad = (v) => v.replace(/\d+/g, (d) => d.padStart(6, '0'));
         switch (feature) {
+            case 'write_new':
+            case 'write_chunk':
+            case 'write_append':
             case 'read_chunk': {
                 return pad(v) >= pad('0.9.4');
             }

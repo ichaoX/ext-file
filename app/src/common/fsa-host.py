@@ -261,6 +261,9 @@ def task(message):
                 result = base64.b64encode(result)
     elif action == 'write':
         with open(data.get('path'), data.get('mode', 'wb')) as f:
+            offset = data.get('offset')
+            if offset != None:
+                f.seek(offset)
             s = data.get('data', '')
             if data.get('encode') == 'base64':
                 s = base64.b64decode(s)

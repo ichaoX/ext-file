@@ -202,7 +202,7 @@ self.__fs_init = function (fs_options = {}) {
             let path = await tool.meta(handle).path();
             if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
             if (![StreamStateEnum.WRITABLE, StreamStateEnum.ERRORING].includes(state)) throw new TypeError(`Cannot close a ${state.toUpperCase()} writable stream`);
-            await sendMessage('fs.write', { path, data: cache });
+            await tool._write(path, cache);
             state = state === StreamStateEnum.ERRORING ? StreamStateEnum.ERRORED : StreamStateEnum.CLOSED;
             cache = null;
         };
@@ -544,7 +544,7 @@ self.__fs_init = function (fs_options = {}) {
                 await tool.setPermission(path, PermissionStateEnum.GRANTED, FileSystemPermissionModeEnum.READWRITE);
                 let kind = await tool._getKind(path);
                 if (kind === FileSystemHandleKindEnum.FILE) {
-                    await sendMessage('fs.write', { path, data: new Blob([]) });
+                    await tool._write(path, new Blob([]));
                 } else {
                     if (kind) {
                         throw createError('TypeMismatchError');
@@ -737,6 +737,24 @@ self.__fs_init = function (fs_options = {}) {
                 }
             }
             return blobParts;
+        },
+        async _write(path, data) {
+            let chunk = getConfig('FILE_CHUNK_SIZE', 30 * 1024 ** 2, "number");
+            if (data.size <= chunk) {
+                return await sendMessage('fs.write', { path, data });
+            }
+            // XXX
+            for (let offset = 0; offset < data.size;) {
+                let blob = data.slice(offset, offset + chunk);
+                await sendMessage('fs.write', {
+                    path,
+                    data: blob,
+                    mode: offset == 0 ? 'new' : 'chunk',
+                    offset,
+                });
+                offset += blob.size;
+                debug(path, `${offset}/${data.size}`, blob.size);
+            }
         },
         async remove(meta, options) {
             let path = meta;
