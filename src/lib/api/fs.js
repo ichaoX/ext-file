@@ -417,17 +417,19 @@ self.__fs_init = function (fs_options = {}) {
             let cache = fileCache.get(path);
             // XXX
             let lastModified = Math.round(1000 * stat.mtime);
+            let type = stat.type || '';
             if (!(cache && cache.lastModified == lastModified && cache.size == stat.size)) {
                 if (allowNonNative) {
                     return createBlob({
                         name: this.name,
                         lastModified,
                         size: stat.size,
+                        type,
                         cpath: meta.cpath,
                     });
                 }
                 let blobParts = await tool._read(path, { stat });
-                cache = new File(blobParts, this.name, { lastModified });
+                cache = new File(blobParts, this.name, { lastModified, type });
                 fileCache.set(path, cache);
             }
             return cache;

@@ -7,6 +7,7 @@
 import atexit
 import base64
 import json
+import mimetypes
 import os
 import shutil
 import sys
@@ -249,11 +250,18 @@ def task(message):
         else:
             result = os.path.abspath(path)
     elif action == 'stat':
-        info = os.stat(data.get('path'))
+        path = data.get('path')
+        info = os.stat(path)
         result = {
             'mtime': info.st_mtime,
             'size': info.st_size,
         }
+        if info.st_mode >> 12 == 8:
+            mimeinfo = mimetypes.guess_type(path)
+            # XXX
+            mime = mimeinfo[0] if mimeinfo[1] is None else None
+            if mime != None:
+                result['type'] = mime
     elif action == 'read':
         with open(data.get('path'), data.get('mode', 'rb')) as f:
             offset = data.get('offset')
