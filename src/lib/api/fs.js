@@ -933,6 +933,16 @@ self.__fs_init = function (fs_options = {}) {
             let kind = await sendMessage('fs.getKind', { path });
             return kind;
         },
+        async getMetadata(handle) {
+            let path = await tool.meta(handle).path();
+            if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+            let stat = await tool._stat(path);
+            let lastModified = Math.round(1000 * stat.mtime);
+            return {
+                size: stat.size,
+                lastModified,
+            };
+        },
         async _stat(path) {
             return await sendMessage('fs.stat', { path });
         },

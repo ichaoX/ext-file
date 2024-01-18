@@ -78,28 +78,32 @@ let initFilePicker = async (message) => {
             $item.appendChild($mtime);
             $item.appendChild($type);
             $list.appendChild($item);
-            if (handle.kind === FileSystemHandleKindEnum.FILE) {
-                setTimeout(async () => {
-                    // XXX
-                    if (!$item.isConnected) return;
-                    let fileSize = (size) => {
-                        let i = Math.floor(Math.log(size || 1) / Math.log(1024));
-                        return (size / Math.pow(1024, i)).toFixed(2) * 1 + ['B', 'KB', 'MB', 'GB', 'TB'][i];
-                    };
-                    try {
+            setTimeout(async () => {
+                // XXX
+                if (!$item.isConnected) return;
+                let fileSize = (size) => {
+                    let i = Math.floor(Math.log(size || 1) / Math.log(1024));
+                    return (size / Math.pow(1024, i)).toFixed(2) * 1 + ['B', 'KB', 'MB', 'GB', 'TB'][i];
+                };
+                try {
+                    let meta;
+                    if (handle.kind === FileSystemHandleKindEnum.FILE) {
                         let file = await handle.getFile({ _allowNonNative: true });
+                        meta = file;
                         $size.title = `${file.size} bytes`;
                         $size.textContent = fileSize(file.size);
-                        let mtime = (new Date(file.lastModified)).toLocaleString('en-GB');
-                        $mtime.textContent = mtime;
-                        $mtime.title = mtime;
                         $type.title = file.type;
                         $type.textContent = file.type;
-                    } catch (e) {
-                        console.warn(e);
+                    } else {
+                        meta = await __FILE_SYSTEM_TOOLS__.getMetadata(handle);
                     }
-                }, 100);
-            }
+                    let mtime = (new Date(file.lastModified)).toLocaleString('en-GB');
+                    $mtime.textContent = mtime;
+                    $mtime.title = mtime;
+                } catch (e) {
+                    console.warn(e);
+                }
+            }, 100);
         };
         let dir = $location.value;
         try {
