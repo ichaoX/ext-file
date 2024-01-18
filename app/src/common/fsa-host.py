@@ -263,11 +263,21 @@ def task(message):
         with open(data.get('path'), data.get('mode', 'wb')) as f:
             offset = data.get('offset')
             if offset != None:
+                # XXX
                 f.seek(offset)
             s = data.get('data', '')
             if data.get('encode') == 'base64':
                 s = base64.b64decode(s)
             result = f.write(s)
+    elif action == 'truncate':
+        with open(data.get('path'), data.get('mode', 'r+b')) as f:
+            size = data.get('size', 0)
+            result = f.truncate(size)
+            # XXX
+            f.seek(0, os.SEEK_END)
+            diff = size-f.tell()
+            if diff > 0:
+                f.write(b'\x00' * diff)
     elif action == 'mkdir':
         path = data.get('path')
         if not os.path.isdir(path):

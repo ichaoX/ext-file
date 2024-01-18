@@ -199,6 +199,10 @@ document.body.addEventListener('click', async (event) => {
                 writeable = await fileHandle.createWritable();
                 return;
             }
+            case 'createWritableInPlace': {
+                writeable = await fileHandle.createWritable({ _inPlace: true, keepExistingData: true });
+                return;
+            }
             case 'createWritableKeepExistingData': {
                 writeable = await fileHandle.createWritable({ keepExistingData: true });
                 return;

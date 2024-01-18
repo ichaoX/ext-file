@@ -554,6 +554,7 @@ const FSApi = {
 
             touch: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             write: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            truncate: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             mkdir: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             rm: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             mv: {

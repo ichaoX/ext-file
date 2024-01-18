@@ -160,7 +160,7 @@ self.__fs_init = function (fs_options = {}) {
         let path = await meta.path();
         let state = StreamStateEnum.WRITABLE;
         let seekOffset = 0;
-        let writeBufferArea = 'memory';
+        let writeBufferType = !!options._inPlace ? 'inplace' : 'memory';
         let writer = {
             memory: {
                 cache: null,
@@ -195,7 +195,36 @@ self.__fs_init = function (fs_options = {}) {
                     this.cache = null;
                 },
             },
-        }[writeBufferArea];
+            inplace: {
+                async start() {
+                    if (!options.keepExistingData) {
+                        await sendMessage('fs.truncate', {
+                            path,
+                            size: 0,
+                        });
+                    }
+                },
+                async write(position, data) {
+                    if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                    await tool._write(path, data, {
+                        mode: 'chunk',
+                        offset: position,
+                    });
+                },
+                async truncate(size) {
+                    if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                    await sendMessage('fs.truncate', {
+                        path,
+                        size,
+                    });
+                },
+                async close() {
+                },
+                async abort() {
+                    // XXX
+                },
+            },
+        }[writeBufferType];
 
         if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
         await writer.start();
@@ -931,22 +960,29 @@ self.__fs_init = function (fs_options = {}) {
             }
             return blobParts;
         },
-        async _write(path, data) {
+        async _write(path, data, options = {}) {
             let chunk = getConfig('FILE_CHUNK_SIZE', 30 * 1024 ** 2, "number");
             if (data.size <= chunk) {
-                return await sendMessage('fs.write', { path, data });
+                return await sendMessage('fs.write', {
+                    ...options,
+                    path,
+                    data,
+                });
             }
             // XXX
+            let offset0 = options.offset || 0;
+            if ('number' !== typeof offset0 || offset0 < 0) throw new TypeError("Invalid write postion");
             for (let offset = 0; offset < data.size;) {
                 let blob = data.slice(offset, offset + chunk);
+                let position = offset0 + offset;
                 await sendMessage('fs.write', {
                     path,
                     data: blob,
-                    mode: offset == 0 ? 'new' : 'chunk',
-                    offset,
+                    mode: options.mode || (position == 0 ? 'new' : 'chunk'),
+                    offset: position,
                 });
                 offset += blob.size;
-                debug(path, `${offset}/${data.size}`, blob.size);
+                debug(path, `${offset0}, ${offset}/${data.size}`, blob.size);
             }
         },
         async remove(meta, options) {
