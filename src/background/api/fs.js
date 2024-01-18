@@ -20,6 +20,7 @@ const FSApi = {
         settings: {},
         limitPrompt: new Map(),
         temp: new Map(),
+        unloadListeners: new Map(),
     },
     _helperAppTipsExpire: 0,
     async port() {
@@ -199,7 +200,7 @@ const FSApi = {
             delete message.data._tid;
             return info;
         },
-        async temp(message) {
+        async temp(message, sender) {
             let data = message.data;
             let map = this.t.data.temp;
             switch (message.subaction) {
@@ -217,10 +218,26 @@ const FSApi = {
                         origin: message.origin,
                         path: data.path,
                         tempfile,
-                        dispose: () => {
+                        dispose: async (clear = true) => {
+                            if (clear) {
+                                util.unwrapResponse(await this.request({
+                                    action: 'rm',
+                                    data: {
+                                        path: info.tempfile,
+                                    },
+                                }));
+                            }
+                            if (info.removeListener) info.removeListener();
                             map.delete(tid);
                         },
                     };
+                    let tabId = sender?.tab?.id;
+                    if (tabId > 0) {
+                        let key = this.t.addUnloadListener(tabId, async () => {
+                            await info.dispose();
+                        });
+                        info.removeListener = () => this.t.removeUnloadListener(tabId, key);
+                    }
                     map.set(tid, info);
                     return util.wrapResponse(tid);
                 }
@@ -236,19 +253,13 @@ const FSApi = {
                             overwrite: true,
                         },
                     });
-                    if (response.code == 200) info.dispose();
+                    if (response.code == 200) await info.dispose(false);
                     return response;
                 }
                 case 'drop': {
                     let info = await this._tempInfo(message, null, true);
-                    let response = await this.request({
-                        action: 'rm',
-                        data: {
-                            path: info.tempfile,
-                        },
-                    });
-                    if (response.code == 200) info.dispose();
-                    return response;
+                    await info.dispose();
+                    return util.wrapResponse();
                 }
                 default: {
                     return this._406;
@@ -1045,6 +1056,36 @@ const FSApi = {
             }
         }
         if ('undefined' !== typeof Tab && Tab.onOriginUpdated) Tab.onOriginUpdated(origin);
+    },
+    onUnload(tabId) {
+        let data = this.data.unloadListeners
+        let map = data.get(tabId);
+        if (!map) return;
+        data.delete(tabId);
+        map.forEach(async (v, k) => {
+            try {
+                await v();
+            } catch (e) {
+                util.log(e);
+            }
+        });
+    },
+    addUnloadListener(tabId, f) {
+        let data = this.data.unloadListeners
+        let map = data.get(tabId);
+        if (!map) {
+            map = new Map();
+            data.set(tabId, map);
+        }
+        let key = this.createId();
+        map.set(key, f);
+        return key;
+    },
+    removeUnloadListener(tabId, key) {
+        let data = this.data.unloadListeners
+        let map = data.get(tabId);
+        if (!map) return;
+        map.delete(key);
     },
     async contentScriptsRegister(options) {
         options = JSON.parse(JSON.stringify(options));

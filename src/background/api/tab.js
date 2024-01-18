@@ -117,6 +117,7 @@ try {
         // XXX origin
         Tab.register(details.url, details.tabId, details.frameId);
         Tab.onChange(details.tabId);
+        if (details.frameId === 0) FSApi.onUnload(details.tabId);
     });
 } catch (e) {
     console.warn(e);
@@ -124,6 +125,7 @@ try {
 
 util.addListener(browser.tabs.onRemoved, (tabId, removeInfo) => {
     Tab.onRemoved(tabId);
+    FSApi.onUnload(tabId);
 });
 
 /*
