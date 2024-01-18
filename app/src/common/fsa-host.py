@@ -4,6 +4,7 @@
 # in order to ensure that stdin and stdout are opened in binary, rather
 # than text, mode.
 
+import atexit
 import base64
 import json
 import os
@@ -148,6 +149,7 @@ pickerActions = ['showDirectoryPicker',
                  'showOpenFilePicker', 'showSaveFilePicker']
 root = None
 filedialog = None
+temp_files = set()
 
 
 def task(message):
@@ -281,12 +283,13 @@ def task(message):
                 f.write(b'\x00' * diff)
     elif action == 'mktemp':
         # XXX
-        fd, result = tempfile.mkstemp()
+        fd, result = tempfile.mkstemp(prefix="fsa")
         try:
             os.close(fd)
             path = data.get('path')
             if path:
                 shutil.copyfile(path, result)
+            temp_files.add(result)
         except:
             os.remove(result)
             raise
@@ -307,14 +310,20 @@ def task(message):
                 os.rmdir(path)
         else:
             os.remove(path)
+        if path in temp_files:
+            temp_files.remove(path)
     elif action == 'mv':
+        src = data.get('src')
+        dst = data.get('dst')
         if not data.get('overwrite', False):
-            if os.path.exists(data.get('dst')):
+            if os.path.exists(dst):
                 raise OSError("dst exists")
         else:
             # XXX
             pass
-        shutil.move(data.get('src'), data.get('dst'))
+        shutil.move(src, dst)
+        if src in temp_files:
+            temp_files.remove(src)
     elif action == 'echo':
         result = data
     else:
@@ -328,6 +337,15 @@ def onError(e, messageId, code=500):
         "message": "%s %s" % (e.__class__.__name__, e),
         "trace": traceback.format_exc(),
     }, messageId, code)
+
+
+def onExit():
+    for _ in temp_files:
+        try:
+            if os.path.isfile(_):
+                os.remove(_)
+        except:
+            pass
 
 
 def main():
@@ -363,6 +381,8 @@ def main():
         tkThread = threading.Thread(target=worker, args=(tkQueue,))
         tkThread.daemon = True
         tkThread.start()
+
+    atexit.register(onExit)
 
     while True:
         message = getMessage()
