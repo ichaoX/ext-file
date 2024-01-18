@@ -19,6 +19,7 @@ const FSApi = {
         originPrompt: {},
         settings: {},
         limitPrompt: new Map(),
+        temp: new Map(),
     },
     _helperAppTipsExpire: 0,
     async port() {
@@ -103,6 +104,29 @@ const FSApi = {
             return FSApi;
         },
         async request(m) {
+            if (m.data) {
+                if ([
+                    'exists',
+                    'stat',
+                    'read',
+                    'write',
+                    'touch',
+                    'truncate',
+                ].includes(m.action)) {
+                    await this._tempInfo(m);
+                }
+                let data = m.data;
+                for (let k of Object.keys(data)) {
+                    if (data.hasOwnProperty(k) && k.startsWith('_')) {
+                        let v = data[k];
+                        if (v !== undefined && v !== null) {
+                            return this._406;
+                        } else {
+                            delete data[k];
+                        }
+                    }
+                }
+            }
             let port = await this.t.port();
             let id = this.t.createId();
             m.id = id;
@@ -160,6 +184,76 @@ const FSApi = {
                 message.data = data;
             }
             return await this.request(message);
+        },
+        async _tempInfo(message, pathKey = 'path', required = false) {
+            let tid = message.data?._tid;
+            if (!tid) {
+                if (required) throw 'empty tid';
+                return;
+            }
+            let info = this.t.data.temp.get(tid);
+            if (!info || message.origin !== info.origin || (pathKey !== null && message.data[pathKey] !== info.path)) throw 'Invalid tid';
+            if (pathKey !== null) {
+                message.data[pathKey] = info.tempfile;
+            }
+            delete message.data._tid;
+            return info;
+        },
+        async temp(message) {
+            let data = message.data;
+            let map = this.t.data.temp;
+            switch (message.subaction) {
+                case 'copy':
+                case 'new': {
+                    let options = {};
+                    if (message.subaction === 'copy') options.path = data.path;
+                    let tempfile = util.unwrapResponse(await this.request({
+                        action: 'mktemp',
+                        data: options,
+                    }));
+                    if (!tempfile) throw 'Invalid tempfile';
+                    let tid = this.t.createId();
+                    let info = {
+                        origin: message.origin,
+                        path: data.path,
+                        tempfile,
+                        dispose: () => {
+                            map.delete(tid);
+                        },
+                    };
+                    map.set(tid, info);
+                    return util.wrapResponse(tid);
+                }
+                case 'move': {
+                    let info = await this._tempInfo(message, null, true);
+                    let path = data.path || info.path;
+                    if (!path) throw 'Invalid path';
+                    let response = await this.request({
+                        action: 'mv',
+                        data: {
+                            src: info.tempfile,
+                            dst: path,
+                            overwrite: true,
+                        },
+                    });
+                    if (response.code == 200) info.dispose();
+                    return response;
+                }
+                case 'drop': {
+                    let info = await this._tempInfo(message, null, true);
+                    let response = await this.request({
+                        action: 'rm',
+                        data: {
+                            path: info.tempfile,
+                        },
+                    });
+                    if (response.code == 200) info.dispose();
+                    return response;
+                }
+                default: {
+                    return this._406;
+                }
+            }
         },
         async scandir(message) {
             let data = message.data;
@@ -555,6 +649,8 @@ const FSApi = {
             touch: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             write: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             truncate: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            temp: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
+            'temp.drop': {},
             mkdir: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             rm: { args: { path: FileSystemPermissionModeEnum.READWRITE } },
             mv: {
@@ -613,6 +709,12 @@ const FSApi = {
         async _verifyAndRequest(message, sender) {
             let action = message.action || '';
             let pattern = this._PERM_MODE[action];
+            if (message.subaction) {
+                let action0 = `${action}.${message.subaction}`;
+                if (this._PERM_MODE.hasOwnProperty(action0)) {
+                    pattern = this._PERM_MODE[action0];
+                }
+            }
             if (pattern) {
                 message = Object.assign({}, message);
                 if (!await this._decryptAndVerifyArgs(message, pattern.args)) return this._403;
@@ -707,10 +809,17 @@ const FSApi = {
         },
     },
     async onMessage(message, sender, sendResponse) {
-        if ('function' === typeof this.action[message.action]) {
-            return await this.action[message.action](message, sender);
+        let [action, ...subaction] = (message.action || '').split('.');
+        let context = this.action;
+        if (subaction.length > 0) {
+            message = Object.assign({}, message || {});
+            message.action = action;
+            message.subaction = subaction.join('.');
+        }
+        if (!action.startsWith('_') && 'function' === typeof context[action]) {
+            return await context[action](message, sender);
         } else {
-            return await this.action.request(message, sender);
+            return await context.request(message, sender);
         }
     },
     async onMessageExternal(message, sender, sendResponse) {

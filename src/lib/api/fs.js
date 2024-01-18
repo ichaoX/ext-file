@@ -160,7 +160,7 @@ self.__fs_init = function (fs_options = {}) {
         let path = await meta.path();
         let state = StreamStateEnum.WRITABLE;
         let seekOffset = 0;
-        let writeBufferType = !!options._inPlace ? 'inplace' : 'memory';
+        let writeBufferType = !!options._inPlace ? 'inplace' : getConfig('WRITE_BUFFER_TYPE', 'memory', ['memory', 'tempfile', 'inplace']);
         let writer = {
             memory: {
                 cache: null,
@@ -195,13 +195,21 @@ self.__fs_init = function (fs_options = {}) {
                     this.cache = null;
                 },
             },
-            inplace: {
+            file: {
+                tid: null,
                 async start() {
-                    if (!options.keepExistingData) {
-                        await sendMessage('fs.truncate', {
+                    if (writeBufferType === 'inplace') {
+                        if (!options.keepExistingData) {
+                            await sendMessage('fs.truncate', {
+                                path,
+                                size: 0,
+                            });
+                        }
+                    } else {
+                        this.tid = await sendMessage(`fs.temp.${options.keepExistingData ? 'copy' : 'new'}`, {
                             path,
-                            size: 0,
                         });
+                        if (!this.tid) throw new TypeError("Invalid tid");
                     }
                 },
                 async write(position, data) {
@@ -209,6 +217,7 @@ self.__fs_init = function (fs_options = {}) {
                     await tool._write(path, data, {
                         mode: 'chunk',
                         offset: position,
+                        _tid: this.tid,
                     });
                 },
                 async truncate(size) {
@@ -216,15 +225,33 @@ self.__fs_init = function (fs_options = {}) {
                     await sendMessage('fs.truncate', {
                         path,
                         size,
+                        _tid: this.tid,
                     });
                 },
                 async close() {
+                    if (this.tid) {
+                        if (await tool.queryPermission(path, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+                        this.tempid = await sendMessage('fs.temp.move', {
+                            path,
+                            _tid: this.tid,
+                        });
+                    }
                 },
                 async abort() {
-                    // XXX
+                    if (this.tid) {
+                        await sendMessage('fs.temp.drop', {
+                            _tid: this.tid,
+                        });
+                    } else {
+                        // XXX
+                        warn(`The changes to "${path}" have been saved in place and cannot be aborted.`);
+                    }
                 },
             },
-        }[writeBufferType];
+        }[{
+            inplace: 'file',
+            tempfile: 'file',
+        }[writeBufferType] || writeBufferType];
 
         if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
         await writer.start();
@@ -975,12 +1002,13 @@ self.__fs_init = function (fs_options = {}) {
             for (let offset = 0; offset < data.size;) {
                 let blob = data.slice(offset, offset + chunk);
                 let position = offset0 + offset;
-                await sendMessage('fs.write', {
+                let o = Object.assign({}, options);
+                await sendMessage('fs.write', Object.assign(o, {
                     path,
                     data: blob,
                     mode: options.mode || (position == 0 ? 'new' : 'chunk'),
                     offset: position,
-                });
+                }));
                 offset += blob.size;
                 debug(path, `${offset0}, ${offset}/${data.size}`, blob.size);
             }

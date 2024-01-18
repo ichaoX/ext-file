@@ -10,6 +10,7 @@ import os
 import shutil
 import sys
 import struct
+import tempfile
 import time
 import threading
 import traceback
@@ -278,6 +279,17 @@ def task(message):
             diff = size-f.tell()
             if diff > 0:
                 f.write(b'\x00' * diff)
+    elif action == 'mktemp':
+        # XXX
+        fd, result = tempfile.mkstemp()
+        try:
+            os.close(fd)
+            path = data.get('path')
+            if path:
+                shutil.copyfile(path, result)
+        except:
+            os.remove(result)
+            raise
     elif action == 'mkdir':
         path = data.get('path')
         if not os.path.isdir(path):
