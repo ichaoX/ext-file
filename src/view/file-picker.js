@@ -45,6 +45,7 @@ let initFilePicker = async (message) => {
     let $location = $container.querySelector(`.location input`);
     let $name = $container.querySelector(`.select-items input[name="name"]`);
     let $types = $container.querySelector(`.select-items select[name="types"]`);
+    let $table = $container.querySelector(".file-list");
     let $list = $container.querySelector(".file-list .list-data");
     let $select = $container.querySelector(`[data-action="select"]`);
     let verifyData = null;
@@ -92,14 +93,20 @@ let initFilePicker = async (message) => {
                         meta = file;
                         $size.title = `${file.size} bytes`;
                         $size.textContent = fileSize(file.size);
+                        $size.setAttribute('data-value', file.size);
+                        $size.title = `${file.size} bytes`;
+                        $size.textContent = fileSize(file.size);
                         $type.title = file.type;
                         $type.textContent = file.type;
                     } else {
                         meta = await __FILE_SYSTEM_TOOLS__.getMetadata(handle);
                     }
-                    let mtime = (new Date(file.lastModified)).toLocaleString('en-GB');
+                    if (!$item.isConnected) return;
+                    let mtime = (new Date(meta.lastModified)).toLocaleString('en-GB');
                     $mtime.textContent = mtime;
                     $mtime.title = mtime;
+                    $mtime.setAttribute('data-value', meta.lastModified);
+                    _sortFileList();
                 } catch (e) {
                     console.warn(e);
                 }
@@ -123,6 +130,7 @@ let initFilePicker = async (message) => {
         } finally {
             if ($location.value == dir) {
                 $list.classList.remove('loading');
+                sortFileList();
             }
         }
     };
@@ -192,6 +200,44 @@ let initFilePicker = async (message) => {
         $select.disabled = !value;
         $name.value = value ? name : "";
     };
+    let sortFileList = () => {
+        let orderBy = $table.getAttribute('data-order-by');
+        let order = $table.getAttribute('data-order');
+        if (!order) return;
+        orderBy = parseInt(orderBy);
+        let getValue = ($item) => {
+            let $n = $item.children[orderBy];
+            let v = $n.getAttribute('data-value');
+            if (v !== null) {
+                if (/^-?\d+(\.\d*)?$/.test(v)) v = parseFloat(v);
+            } else {
+                v = $n.title;
+            }
+            return v;
+        }
+        [...$list.children]
+            .sort((a, b) => {
+                let va = getValue(a);
+                let vb = getValue(b);
+                if (va == vb) {
+                    if (va === vb) return 0;
+                    if (va === "") va = -Infinity;
+                    if (vb === "") vb = -Infinity;
+                }
+                return (order == 'desc' ? va < vb : va > vb) ? 1 : -1;
+            })
+            .forEach(node => $list.appendChild(node));
+    };
+    let debounce = (fn, wait) => {
+        let timer = null;
+        return function (...args) {
+            if (timer !== null) clearTimeout(timer);
+            timer = setTimeout(() => {
+                fn.call(this, ...args);
+            }, wait);
+        };
+    };
+    let _sortFileList = debounce(sortFileList, 500);
 
     if (options.multiple) $container.classList.add('multiple');
     if (Array.isArray(options.types)) {
@@ -256,6 +302,26 @@ let initFilePicker = async (message) => {
         [...$list.querySelectorAll('.list-item.selected')].map($n => $n.classList.remove('selected'));
         $name.value = "";
         renderSelectedItem();
+    });
+    $container.querySelector(`.file-list .list-header`).addEventListener('click', (event) => {
+        let $n = event.target;
+        if (!($n instanceof HTMLElement)) return;
+        let $column = $n.closest('.list-header > *');
+        if (!$column) return;
+        let orderBy = [...$column.parentElement.children].indexOf($column);
+        let orderBy0 = $table.getAttribute('data-order-by');
+        let order = 'asc';
+        if (orderBy0 !== null && orderBy == orderBy0) {
+            order = $table.getAttribute('data-order');
+            order = {
+                '': 'asc',
+                asc: 'desc',
+                desc: '',
+            }[order];
+        }
+        $table.setAttribute('data-order-by', orderBy);
+        $table.setAttribute('data-order', order);
+        sortFileList();
     });
     $list.addEventListener('click', async (event) => {
         let $n = event.target;

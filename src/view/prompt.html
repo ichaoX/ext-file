@@ -273,6 +273,8 @@
             overflow-y: auto;
             flex-grow: 0;
             flex-shrink: 0;
+            user-select: none;
+            cursor: pointer;
         }
 
         .list-header {
@@ -286,6 +288,28 @@
 
         .list-header>*+* {
             border-left: 1px solid gray;
+        }
+
+        .file-list[data-order] .list-header>*::after {
+            opacity: 0.5;
+            position: absolute;
+            right: 5px;
+            display: none;
+        }
+
+        .file-list[data-order="asc"] .list-header>*::after {
+            content: "↓";
+        }
+
+        .file-list[data-order="desc"] .list-header>*::after {
+            content: "↑";
+        }
+
+        .file-list[data-order][data-order-by="0"] .list-header>*:nth-child(1)::after,
+        .file-list[data-order][data-order-by="1"] .list-header>*:nth-child(2)::after,
+        .file-list[data-order][data-order-by="2"] .list-header>*:nth-child(3)::after,
+        .file-list[data-order][data-order-by="3"] .list-header>*:nth-child(4)::after {
+            display: inline-block;
         }
 
         .list-data {
@@ -321,6 +345,7 @@
 
         .list-header>*,
         .list-item>* {
+            position: relative;
             padding: 0 10px;
             white-space: pre;
             overflow: hidden;
