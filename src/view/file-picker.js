@@ -115,8 +115,39 @@ let initFilePicker = async (message) => {
         let dir = $location.value;
         try {
             $list.classList.add('loading');
-            let dirHandle = await __FILE_SYSTEM_TOOLS__.createFileSystemHandle(dir, FileSystemHandleKindEnum.DIRECTORY);
-            dir = await __FILE_SYSTEM_TOOLS__.meta(dirHandle).path();
+            // XXX
+            let listdrives = false;
+            if (dir.trim() === "") {
+                try {
+                    let r = await util.sendMessage('fs.abspath', { path: "C:/" })
+                    listdrives = r.startsWith("C:");
+                } catch (e) {
+                    console.warn(e);
+                }
+                dir = listdrives ? "" : "/";
+            }
+            let dirHandle;
+            if (dir === "") {
+                dirHandle = {
+                    values: async function* () {
+                        let letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                        for (let letter of letters.split('')) {
+                            let path = `${letter}:/`;
+                            try {
+                                if (await util.sendMessage('fs.isdir', { path })) {
+                                    yield await __FILE_SYSTEM_TOOLS__.createFileSystemHandle(path, FileSystemHandleKindEnum.DIRECTORY);
+                                }
+                            } catch (e) {
+                                console.warn(e);
+                            }
+                        }
+                    },
+                }
+            } else {
+                dir = await util.sendMessage('fs.abspath', { path: dir.replace(/[\\/]?$/, '/') });
+                dirHandle = await __FILE_SYSTEM_TOOLS__.createFileSystemHandle(dir, FileSystemHandleKindEnum.DIRECTORY);
+                dir = await __FILE_SYSTEM_TOOLS__.meta(dirHandle).path();
+            }
             $location.value = dir;
             renderSelectedItem();
             for await (let handle of dirHandle.values()) {
@@ -287,7 +318,13 @@ let initFilePicker = async (message) => {
     $location.value = options.startIn;
     renderFileList();
     $container.querySelector('.location .up').addEventListener('click', async () => {
-        $location.value = await __FILE_SYSTEM_TOOLS__.dirname($location.value);
+        let path = await __FILE_SYSTEM_TOOLS__.dirname($location.value);
+        if (path === $location.value) path = "";
+        if (path && !await util.sendMessage('fs.isdir', { path })) {
+            console.warn(`"${path}" is not a directory.`);
+            return;
+        }
+        $location.value = path
         renderFileList();
     });
     $name.addEventListener('input', () => {
@@ -331,7 +368,8 @@ let initFilePicker = async (message) => {
         let name = $item.querySelector('.name').title;
         if ($item.classList.contains('directory')) {
             if ($container.classList.contains('multiple') && $list.classList.contains('selected')) return;
-            $location.value = await __FILE_SYSTEM_TOOLS__.joinName($location.value, name);
+            let dir = $location.value;
+            $location.value = dir ? await __FILE_SYSTEM_TOOLS__.joinName(dir, name) : name;
             renderFileList();
         } else if ($item.classList.contains('file')) {
             if ($item.classList.contains('selected')) {
