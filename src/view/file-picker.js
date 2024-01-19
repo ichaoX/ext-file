@@ -62,6 +62,7 @@ let initFilePicker = async (message) => {
                     allowTypes.some(ext => name.toLowerCase().endsWith(ext))
                 ))
             ) {
+                // TODO
                 $item.classList.add('disabled');
                 return;
             }
@@ -69,11 +70,13 @@ let initFilePicker = async (message) => {
             $name.classList.add('name');
             let $size = document.createElement('div');
             let $mtime = document.createElement('div');
+            let $type = document.createElement('div');
             $name.textContent = name;
             $name.title = name;
             $item.appendChild($name);
             $item.appendChild($size);
             $item.appendChild($mtime);
+            $item.appendChild($type);
             $list.appendChild($item);
             if (handle.kind === FileSystemHandleKindEnum.FILE) {
                 setTimeout(async () => {
@@ -90,6 +93,8 @@ let initFilePicker = async (message) => {
                         let mtime = (new Date(file.lastModified)).toLocaleString('en-GB');
                         $mtime.textContent = mtime;
                         $mtime.title = mtime;
+                        $type.title = file.type;
+                        $type.textContent = file.type;
                     } catch (e) {
                         console.warn(e);
                     }
