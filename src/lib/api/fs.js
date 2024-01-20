@@ -407,6 +407,7 @@ self.__fs_init = function (fs_options = {}) {
                 throw createError('InvalidModificationError');
             }
             this._meta.cpath = await tool.cpath(newPath);
+            this._meta.name = name;
             this.name = name;
             fileCache.delete(path);
         },
@@ -647,6 +648,18 @@ self.__fs_init = function (fs_options = {}) {
         return o;
     };
 
+    defGetters(_FileSystemHandleProto, {
+        kind() {
+            return {
+                'FileSystemFileHandle': FileSystemHandleKindEnum.FILE,
+                'FileSystemDirectoryHandle': FileSystemHandleKindEnum.DIRECTORY,
+            }[this._meta?._object || ''] || '';
+        },
+        name() {
+            return this._meta?.name || '';
+        },
+    });
+
     defGetters(_BlobProto, {
         size() {
             return this._meta?.size || 0;
@@ -684,9 +697,12 @@ self.__fs_init = function (fs_options = {}) {
             _meta: {
                 cpath,
                 croot,
+                name,
+                _object: {
+                    [FileSystemHandleKindEnum.FILE]: 'FileSystemFileHandle',
+                    [FileSystemHandleKindEnum.DIRECTORY]: 'FileSystemDirectoryHandle',
+                }[kind] || 'FileSystemHandle',
             },
-            kind,
-            name,
             // __proto__: _FileSystemHandlePrototype
         };
         return tool.parseHandle(cloneIntoScope(handle));
@@ -1133,13 +1149,27 @@ self.__fs_init = function (fs_options = {}) {
         },
         createFileSystemHandle,
         parseHandle(handle) {
-            if (!(handle && handle.kind && 'string' === typeof handle.name && handle._meta && 'function' != typeof handle.isSameEntry)) return handle;
-            let proto = _FileSystemHandleProto;
-            if (handle.kind === FileSystemHandleKindEnum.FILE) {
-                proto = _FileSystemFileHandleProto;
-            } else if (handle.kind === FileSystemHandleKindEnum.DIRECTORY) {
-                proto = _FileSystemDirectoryHandleProto;
+            let proto;
+            if (!(handle?._meta && 'function' != typeof handle.isSameEntry && (proto = !!handle._meta._object ? {
+                'FileSystemHandle': _FileSystemHandleProto,
+                'FileSystemFileHandle': _FileSystemFileHandleProto,
+                'FileSystemDirectoryHandle': _FileSystemDirectoryHandleProto,
+            }[handle._meta._object || '']
+                : ('string' === typeof handle.name && Object.values(FileSystemHandleKindEnum).includes(handle.kind)) && {
+                    [FileSystemHandleKindEnum.FILE]: _FileSystemFileHandleProto,
+                    [FileSystemHandleKindEnum.DIRECTORY]: _FileSystemDirectoryHandleProto,
+                }[handle.kind]))) return handle;
+
+            if (!handle._meta._object && Object.values(FileSystemHandleKindEnum).includes(handle.kind)) {
+                handle._meta._object = {
+                    [FileSystemHandleKindEnum.FILE]: 'FileSystemFileHandle',
+                    [FileSystemHandleKindEnum.DIRECTORY]: 'FileSystemDirectoryHandle',
+                }[handle.kind];
             }
+            if ('string' !== typeof handle._meta.name && 'string' === typeof handle.name) {
+                handle._meta.name = handle.name;
+            }
+            applyGetters(handle, _FileSystemHandleProto);
             return setProto(handle, proto);
         },
         parseBlob(data) {
