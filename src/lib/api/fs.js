@@ -389,7 +389,7 @@ self.__fs_init = function (fs_options = {}) {
             if (destination.kind === FileSystemHandleKindEnum.DIRECTORY) {
                 destinationMeta = tool.meta(destination);
                 newDirectory = await destinationMeta.path();
-                if (!name) name = this.name;
+                if (!name && 'string' !== typeof name) name = this.name;
             } else {
                 newDirectory = await tool.dirname(path);
                 name = destination;
@@ -425,6 +425,7 @@ self.__fs_init = function (fs_options = {}) {
             let meta = tool.meta(this);
             let path = await meta.path();
             if (await tool.queryPermission(path) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
+            // TODO: isfile
             let stat = await tool._stat(path);
             let nonNativePreference = getConfig('NON_NATIVE_FILE', 'never', ['never', 'auto', 'always']);
             let allowNonNative = nonNativePreference === 'always' || !!options?._allowNonNative;
