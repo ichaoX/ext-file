@@ -253,15 +253,30 @@ self.__fs_init = function (fs_options = {}) {
             tempfile: 'file',
         }[writeBufferType] || writeBufferType];
 
+        const queue = [];
+        let taskQueue = (fn) => {
+            return async function (...args) {
+                let resolve;
+                queue.push(new Promise(r => (resolve = r)));
+                if (queue.length > 1) await queue[queue.length - 2];
+                try {
+                    return await fn.call(this, ...args);
+                } finally {
+                    resolve();
+                    queue.shift();
+                }
+            };
+        };
+
         if (await tool.requestPermission(meta, FileSystemPermissionModeEnum.READWRITE) !== PermissionStateEnum.GRANTED) throw createError('NotAllowedError');
         await writer.start();
         let stream = {
             async seek(position) {
-                await debugHandle(handle, 'FileSystemWritableFileStream.seek', position);
+                // await debugHandle(handle, 'FileSystemWritableFileStream.seek', position);
                 await stream.write({ type: WriteCommandTypeEnum.SEEK, position });
             },
             async truncate(size) {
-                await debugHandle(handle, 'FileSystemWritableFileStream.truncate', size);
+                // await debugHandle(handle, 'FileSystemWritableFileStream.truncate', size);
                 await stream.write({ type: WriteCommandTypeEnum.TRUNCATE, size });
             },
             async write(data) {
@@ -308,18 +323,23 @@ self.__fs_init = function (fs_options = {}) {
             state = StreamStateEnum.ERRORED;
             await writer.abort();
         };
+
+        stream.write = taskQueue(stream.write);
+        close = taskQueue(close);
+        abort = taskQueue(abort);
+
         if (scope.WritableStream) {
             let fsWritableStream = new scope.WritableStream(cloneIntoScope({
                 async write(chunk, controller) {
-                    await debugHandle(handle, 'writableStream.write', chunk, controller);
+                    // await debugHandle(handle, 'writableStream.write', chunk, controller);
                     return await stream.write(chunk);
                 },
                 async close(controller) {
-                    await debugHandle(handle, 'writableStream.close', controller);
+                    // await debugHandle(handle, 'writableStream.close', controller);
                     return await close();
                 },
                 async abort(reason) {
-                    await debugHandle(handle, 'writableStream.abort', reason);
+                    // await debugHandle(handle, 'writableStream.abort', reason);
                     return await abort(reason);
                 },
             }));
