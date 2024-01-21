@@ -144,7 +144,18 @@ let initFilePicker = async (message) => {
                     },
                 }
             } else {
-                dir = await util.sendMessage('fs.abspath', { path: dir.replace(/[\\/]?$/, '/') });
+                let expand = /^[~$%]/.test(dir);
+                dir = await util.sendMessage('fs.abspath', {
+                    path: dir.replace(/[\\/]?$/, '/'),
+                    expand,
+                });
+                if (!expand && /[$%]/.test(dir) && !await util.sendMessage('fs.exists', { path: dir })) {
+                    expand = true;
+                    dir = await util.sendMessage('fs.abspath', {
+                        path: dir,
+                        expand,
+                    });
+                }
                 dirHandle = await __FILE_SYSTEM_TOOLS__.createFileSystemHandle(dir, FileSystemHandleKindEnum.DIRECTORY);
                 dir = await __FILE_SYSTEM_TOOLS__.meta(dirHandle).path();
             }

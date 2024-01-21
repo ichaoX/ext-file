@@ -248,6 +248,9 @@ def task(message):
         if data.get('startIn', False):
             result = parseWellKnownDirectory(path, True)
         else:
+            if data.get('expand', False):
+                path = os.path.expandvars(path)
+                path = os.path.expanduser(path)
             result = os.path.abspath(path)
     elif action == 'stat':
         path = data.get('path')
