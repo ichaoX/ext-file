@@ -505,7 +505,9 @@ self.__fs_init = function (fs_options = {}) {
     let _FileProto = setProto(cloneIntoScope({
     }), _BlobProto);
 
+    let propsDescMap = new Map();
     let defGetters = (o, props, options = {}) => {
+        propsDescMap.set(o, props);
         let desc = {};
         for (let k in props) {
             desc[k] = {
@@ -517,6 +519,16 @@ self.__fs_init = function (fs_options = {}) {
             };
         }
         return Object.defineProperties(getWrapped(o) || o, getWrapped(cloneIntoScope(desc)));
+    };
+    let applyGetters = (o, proto) => {
+        let props = propsDescMap.get(proto);
+        if (props) {
+            // XXX
+            for (let k in props) {
+                o[k] = props[k].call(o);
+            }
+        }
+        return o;
     };
 
     defGetters(_BlobProto, {
@@ -1002,6 +1014,8 @@ self.__fs_init = function (fs_options = {}) {
                 Blob: _BlobProto,
                 File: _FileProto,
             }[data._meta._object || '']))) return data;
+            applyGetters(data, _BlobProto);
+            if (proto === _FileProto) applyGetters(data, _FileProto);
             return setProto(data, proto);
         },
     };
