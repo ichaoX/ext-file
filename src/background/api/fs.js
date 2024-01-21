@@ -819,6 +819,24 @@ const FSApi = {
             return util.wrapResponse(result);
         },
     },
+    handleResponse(fn, detail = false) {
+        return async function (...args) {
+            let response;
+            try {
+                response = await fn.call(this, ...args);
+            } catch (e) {
+                response = { code: 500, data: e };
+            }
+            if (response?.code != 200) {
+                let data = response.data;
+                if (!util.debug && data && data.trace && 'string' === typeof data.message) {
+                    data.message = `InternalError [${data.message.replace(/^([^:\s]+)[\s\S]*$/, '$1')}]`;
+                    if (!detail) data.trace = `${data.message} …`;
+                }
+            }
+            return response;
+        }
+    },
     async onMessage(message, sender, sendResponse) {
         let [action, ...subaction] = (message.action || '').split('.');
         let context = this.action;
@@ -827,11 +845,13 @@ const FSApi = {
             message.action = action;
             message.subaction = subaction.join('.');
         }
-        if (!action.startsWith('_') && 'function' === typeof context[action]) {
-            return await context[action](message, sender);
-        } else {
-            return await context.request(message, sender);
-        }
+        return await this.handleResponse(async () => {
+            if (!action.startsWith('_') && 'function' === typeof context[action]) {
+                return await context[action](message, sender);
+            } else {
+                return await context.request(message, sender);
+            }
+        }, true)();
     },
     async onMessageExternal(message, sender, sendResponse) {
         message = Object.assign({}, message || {});
@@ -849,14 +869,15 @@ const FSApi = {
             message.action = action;
             message.subaction = subaction.join('.');
         }
-        if (!action.startsWith('_') && 'function' === typeof context[action]) {
-            return await context[action](message, sender);
-        } else if (context._PERM_MODE.hasOwnProperty(action)) {
-            return await context._verifyAndRequest(message, sender);
-        } else {
-            return context._403;
-        }
-        // TODO catch
+        return await this.handleResponse(async () => {
+            if (!action.startsWith('_') && 'function' === typeof context[action]) {
+                return await context[action](message, sender);
+            } else if (context._PERM_MODE.hasOwnProperty(action)) {
+                return await context._verifyAndRequest(message, sender);
+            } else {
+                return context._403;
+            }
+        })();
     },
     disconnect() {
         let error = 'Port disconnected';
