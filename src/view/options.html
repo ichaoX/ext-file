@@ -95,6 +95,10 @@
             color: red;
         }
 
+        [data-status="warn"] {
+            color: darkorange;
+        }
+
         .btn-group {
             margin: 0.5rem 1rem;
         }
@@ -131,7 +135,9 @@
                     <span class="help">(<a href="./doc.html#app" target="doc">?</a>)</span>
                 </label>
                 <label><span class="label">Version</span><span data-state="version"
-                        data-status="">Unknown</span></label>
+                        data-status="">Unknown</span>
+                    <span class="help version"></span>
+                </label>
             </div>
             <div class="btn-group">
                 <button type="button" class="start">Start</button>

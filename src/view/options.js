@@ -134,7 +134,22 @@ let getFormData = () => {
         $section.querySelector(".stop").disabled = !state.connected;
         [].forEach.call($items, $n => {
             let key = $n.getAttribute('data-state');
-            $n.setAttribute('data-status', !state.error && state[key] ? 'ok' : (state.error ? 'error' : ''));
+            let status = !state.error && state[key] ? 'ok' : (state.error ? 'error' : '');
+            switch (key) {
+                case 'version': {
+                    let minVer = '0.9.4';
+                    let $help = document.querySelector('.help.version');
+                    let pad = (v) => v.replace(/\d+/g, (d) => d.padStart(6, '0'));
+                    if (status === 'ok' && pad(state[key]) < pad(minVer)) {
+                        status = 'warn';
+                        $help.textContent = `(Some features require v${minVer} or higher)`;
+                    } else {
+                        $help.textContent = ``;
+                    }
+                    break;
+                }
+            }
+            $n.setAttribute('data-status', status);
             $n.textContent = state[key] || 'Unknown';
         });
     };
