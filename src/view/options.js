@@ -177,6 +177,7 @@ let getFormData = () => {
                 minimap: {
                     enabled: false,
                 },
+                quickSuggestions: true,
             },
             events: {
                 async input(event) {
@@ -300,7 +301,10 @@ type FS_CONFIG = {
     CLONE_ENABLED?: boolean,
     WORKER_ENABLED?: boolean,
     FILE_SIZE_LIMIT?: number,
+    FILE_CHUNK_SIZE?: number,
     FILE_CACHE_EXPIRE?: number,
+    NON_NATIVE_FILE?: 'never' | 'auto' | 'always',
+    WRITE_BUFFER_TYPE?: 'memory' | 'tempfile' | 'inplace',
     EXPOSE_NAMESPACE?: string | boolean,
     DEBUG_ENABLED?: boolean,
 };

@@ -25,6 +25,8 @@ This extension brings the [File System Access API](https://wicg.github.io/file-s
 
 * Limited Worker context support and requires additional configuration of the `FS_CONFIG.WORKER_ENABLED`.
 
-* Large file reads and writes may take up a lot of memory, read file size is limited by the `FS_CONFIG.FILE_SIZE_LIMIT`.
+* Read file size is limited by the `FS_CONFIG.FILE_SIZE_LIMIT`.
+    Web developers can read large file streams and slices with `handle.getFile({ _allowNonNative: true })`,
+    and write large file in-place with `handle.createWritable({ _inPlace: true, keepExistingData: true })`.
 
 * `DataTransferItem.prototype.getAsFileSystemHandle` is not implemented.

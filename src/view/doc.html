@@ -7,6 +7,11 @@
     <link rel="shortcut icon" href="/icon.png">
     <title>File System Access Extension</title>
     <style>
+        :root {
+            font-family: sans-serif;
+            line-height: 1.5;
+        }
+
         :target {
             background-color: lightyellow;
         }
@@ -14,6 +19,10 @@
         :target .warn {
             color: red;
             font-weight: bold;
+        }
+
+        :any-link {
+            text-underline-offset: 0.2rem;
         }
 
         body {
@@ -150,8 +159,11 @@
                 href="#fs_config_worker_enabled"><code>WORKER_ENABLED</code></a>.
         </li>
         <li>
-            Large file reads and writes may take up a lot of memory, read file size is limited by the <a
-                href="#fs_config_file_size_limit"><code>FILE_SIZE_LIMIT</code></a>.
+            Read file size is limited by the <a href="#fs_config_file_size_limit"><code>FILE_SIZE_LIMIT</code></a>.
+            Web developers can read large file streams and slices with
+            <code>handle.getFile({ _allowNonNative: true })</code>,
+            and write large file in-place with
+            <code>handle.createWritable({ _inPlace: true, keepExistingData: true })</code>.
         </li>
         <li>
             <code>DataTransferItem.prototype.getAsFileSystemHandle</code> is not implemented.
@@ -303,9 +315,31 @@
                 <td>Limit file size when reading.</td>
             </tr>
             <tr>
+                <td id="fs_config_file_chunk_size">FILE_CHUNK_SIZE</td>
+                <td data-unit="byte"><code>number</code></td>
+                <td>The size of the data chunk for each read or write.</td>
+            </tr>
+            <tr>
                 <td>FILE_CACHE_EXPIRE</td>
                 <td data-unit="second"><code>number</code></td>
                 <td>Clear cache for files not accessed beyond timeout.</td>
+            </tr>
+            <tr>
+                <td id="fs_config_non_native_file">NON_NATIVE_FILE</td>
+                <td><code>'never' | 'auto' | 'always'</code></td>
+                <td>
+                    Improved performance in reading metadata by simulating the
+                    <a href="https://developer.mozilla.org/en-US/docs/Web/API/File" target="_blank">File</a> interface,
+                    but incompatible with some web pages.
+                </td>
+            </tr>
+            <tr>
+                <td id="fs_config_non_native_file">WRITE_BUFFER_TYPE</td>
+                <td><code>'memory' | 'tempfile' | 'inplace'</code></td>
+                <td>
+                    The type of buffer to use when <code>FileSystemFileHandle.createWritable()</code>.
+                    If set to <code>'inplace'</code>, the original file may be corrupted by improper aborting.
+                </td>
             </tr>
             <tr>
                 <td>EXPOSE_NAMESPACE</td>
