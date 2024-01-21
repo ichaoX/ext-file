@@ -76,6 +76,24 @@
             opacity: 0.5;
         }
 
+        .reference a {
+            font-size: 0.8em;
+            text-decoration: none;
+        }
+
+        .reference a:before {
+            content: "[";
+            opacity: 1;
+        }
+
+        .reference a::after {
+            content: "]";
+        }
+
+        .references li {
+            font-size: 0.8rem;
+        }
+
         th {
             background-color: #ddd;
         }
@@ -200,14 +218,18 @@
             <tr>
                 <td>Lite</td>
                 <td><a target="_blank" href="/assets/helper-app-lite-windows.zip">Download</a></td>
-                <td>Python 2 or 3 installed and added to <code title="Environment Variable">PATH</code>, with the
-                    Tkinter module enabled.</td>
+                <td>
+                    Python 2 or 3 installed and added to <code title="Environment Variable">PATH</code>.
+                    Tkinter module installation is optional<sup class="reference"><a href="#tkinter">1</a></sup>.
+                </td>
             </tr>
             <tr>
                 <td>Linux</td>
                 <td>Lite</td>
                 <td><a target="_blank" href="/assets/helper-app-lite-linux.zip">Download</a></td>
-                <td>Tkinter module installed.</td>
+                <td class="tkinter">
+                    Tkinter module installation is optional<sup class="reference"><a href="#tkinter">1</a></sup>.
+                </td>
             </tr>
             <tr>
                 <td>macOS</td>
@@ -226,6 +248,9 @@
             </tr>
         </tbody>
     </table>
+    <ol class="references">
+        <li id="tkinter">Optional Tkinter module for show native file picker.</li>
+    </ol>
     <h3 id="check-app"><a href="#check-app">Check the helper app</a></h3>
     <p>
         Open the <a href="./options.html#app" target="options">options page</a> and check the state of the <q>Helper

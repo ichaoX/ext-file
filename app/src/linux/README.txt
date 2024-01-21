@@ -1,17 +1,3 @@
-# Requirements
-
-- Python 2 or Python 3 installed on your system.
-- Tkinter module installed. Note that the Tkinter module comes bundled with Python, but may require additional installation steps on some Linux distributions.
-
-    For Debian-based distributions:
-
-    ```bash
-    sudo apt-get install python-tk  # For Python 2
-    sudo apt-get install python3-tk  # For Python 3
-    ```
-
-    Please refer to the documentation of your specific distribution for any additional instructions or alternative package managers.
-
 # Installation
 
 To install the project, follow these steps:

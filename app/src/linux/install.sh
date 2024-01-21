@@ -3,12 +3,6 @@ set -e
 
 cd "$(dirname $0)"
 
-if ! (env python -c "try: import tkinter
-except: import Tkinter" &>/dev/null); then
-    echo "Python tkinter module not found. Canceled."
-    exit 1
-fi
-
 read -p "Do you want to install to this directory (y/n)? " choice
 
 if [ "$choice" == "y" ]; then
