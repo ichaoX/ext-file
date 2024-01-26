@@ -1,3 +1,8 @@
+/**
+ * Code Editor Extension
+ * @version: 1.2
+ */
+
 .ext-code-editor {
     min-height: 300px;
     height: 300px;
@@ -5,6 +10,7 @@
     resize: vertical;
     overflow-y: hidden;
     background-color: #eee;
+    box-sizing: border-box;
 }
 
 .ext-code-editor iframe {
@@ -16,10 +22,6 @@
 .ext-code-editor--loading {
     animation: ext-code-editor--loading 1s infinite alternate;
     pointer-events: none;
-}
-
-.ext-code-editor--loading iframe {
-    display: none;
 }
 
 .ext-code-editor--disconnected {

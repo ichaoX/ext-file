@@ -1,4 +1,9 @@
 /**
+ * Code Editor Extension
+ * @version: 1.2
+ */
+
+/**
  * @typedef {string|number} Keybinding
  * @typedef {Record<string,function>} FunctionRecord
  * @typedef {Record<string,function|({id?:string,keybindings?:Keybinding[]}&monaco.editor.IActionDescriptor)>} ActionRecord
@@ -13,7 +18,21 @@
  * @typedef {({setDiagnosticsOptions:(options:monaco.languages.json.DiagnosticsOptions)=>void})} JSONUtil
  * @typedef {({pattern?:string|RegExp,excludePattern?:string|RegExp,kind?:number|string,insertTextRules?:number|string}&monaco.languages.CompletionItem)} CompletionItem
  * @typedef {({registerCompletionItems:(languageSelector:monaco.languages.LanguageSelector,items:CompletionItem[])=>void,javascript:JSUtil,typescript:JSUtil,json:JSONUtil})} LanguageUtil
- * @typedef {({editor:monaco.editor.IStandaloneCodeEditor|monaco.editor.IStandaloneDiffEditor,primaryEditor:monaco.editor.IStandaloneCodeEditor,languages:LanguageUtil,updateOptions:(options:monaco.editor.IEditorOptions&monaco.editor.IGlobalEditorOptions)=>void,executeScript:(details:ScriptDetail)=>any,sendMessage:(action:string,data:any)=>any,sendEvent:(type:string,event:any,wait:boolean)=>any})} EditorUtil
+ * @typedef {({
+ * editor:monaco.editor.IStandaloneCodeEditor|monaco.editor.IStandaloneDiffEditor,
+ * primaryEditor:monaco.editor.IStandaloneCodeEditor,
+ * addActions:(actions:ActionRecord)=>Promise<void>,
+ * addCommands:(commands:FunctionRecord)=>Promise<void>,
+ * addKeybindingRules:(rules:KeybindingRule[],init?:boolean)=>Promise<void>,
+ * updateEvents:(events:FunctionRecord)=>void,
+ * updateOptions:(options:monaco.editor.IEditorOptions&monaco.editor.IGlobalEditorOptions&monaco.editor.IDiffEditorOptions&{value?:string,originalValue?:string,language?:string})=>void,
+ * setEditorType:(type:'CodeEditor'|'DiffEditor')=>Promise<void>,
+ * getEditorType:()=>'CodeEditor'|'DiffEditor',
+ * executeScript:(details:ScriptDetail)=>any,
+ * sendMessage:(action:string,data:any)=>any,
+ * sendEvent:(type:string,event:any,wait:boolean)=>any,
+ * languages:LanguageUtil,
+ * })} EditorUtil
  * @typedef {EditorUtil} AsyncEditorUtil
  * @typedef {monaco} AsyncMonaco
  */
@@ -95,7 +114,7 @@ const codeEditor = {
         if (!context.scripts) context.scripts = {};
 
         const createId = () => {
-            return `${Date.now()}-${Math.random()}`;
+            return `${Date.now()}-${Math.round(Math.random() * 1E4)}`;
         };
 
         let id = context.id || createId();
@@ -203,7 +222,7 @@ const codeEditor = {
          * @returns
          */
         const sendMessage = async (action, data) => {
-            let id = `${Date.now()}-${Math.random()}`;
+            let id = `${Date.now()}-${Math.round(Math.random() * 1E4)}`;
             let message = {
                 action,
                 data,
@@ -351,8 +370,8 @@ const codeEditor = {
             emit,
             /**
              * Update the editor's options.
-             * @param {(Context['options']|FunctionRecord|ActionRecord|KeybindingRule[])} value
-             * @param {'options'|'actions'|'commands'|'events'|'keybindingRules'} type
+             * @param {(Context['options']|FunctionRecord|ActionRecord|KeybindingRule[]|string)} value
+             * @param {'options'|'actions'|'commands'|'events'|'keybindingRules'|'type'} type
              * @returns
              */
             async updateOptions(value, type = 'options') {
